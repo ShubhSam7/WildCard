@@ -5,6 +5,7 @@ import (
 	"iiitn-predict/apps/backend/bet"
 	"iiitn-predict/packages/database"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,6 +13,15 @@ func main() {
     database.InitDB()
     database.SeedAdmin()
     r := gin.Default()
+
+    // CORS middleware
+    r.Use(cors.New(cors.Config{
+        AllowOrigins:     []string{"http://localhost:3000"},
+        AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+        AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+        ExposeHeaders:    []string{"Content-Length"},
+        AllowCredentials: true,
+    }))
 
     authGroup := r.Group("/auth")
     {
