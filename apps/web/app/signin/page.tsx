@@ -2,20 +2,53 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-export default function SignUpPage() {
+export default function SignInPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle signup logic here
-    console.log("Signup:", formData);
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:8080/auth/signin", {
+        method: "POST",
+        mode: "cors",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to sign in");
+      }
+
+      // Store token if provided
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+
+      // Redirect to dashboard or home
+      router.push("/");
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,20 +68,23 @@ export default function SignUpPage() {
               <span className="text-[#a6a5f2]">Predict</span>
             </h1>
           </Link>
-          <p className="text-gray-400 text-sm">
-            Join the ultimate prediction platform
-          </p>
+          <p className="text-gray-400 text-sm">Welcome back to the platform</p>
         </div>
 
-        {/* Signup Card */}
+        {/* Signin Card */}
         <div className="bg-[#272727] border border-white/5 rounded-2xl p-7 backdrop-blur-xl">
           <h2 className="text-xl font-bold mb-2">Sign In</h2>
           <p className="text-gray-400 text-sm mb-6">
-            Sign up with your IIITN email
+            Enter your credentials to continue
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
 
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Input */}
             <div>
               <label
@@ -108,35 +144,23 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            {/* Terms Checkbox */}
-            <div className="flex items-start gap-2">
-              <input
-                id="terms"
-                type="checkbox"
-                className="mt-0.5 w-3.5 h-3.5 accent-[#8b5cf6] cursor-pointer"
-                required
-              />
-              <label
-                htmlFor="terms"
-                className="text-[10px] text-gray-400 leading-tight"
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <a
+                href="#"
+                className="text-xs text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
               >
-                I agree to the{" "}
-                <a href="#" className="text-[#8b5cf6] hover:underline">
-                  Terms of Service
-                </a>{" "}
-                and{" "}
-                <a href="#" className="text-[#8b5cf6] hover:underline">
-                  Privacy Policy
-                </a>
-              </label>
+                Forgot password?
+              </a>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-lg text-sm font-semibold text-white transition-all"
+              disabled={isLoading}
+              className="w-full py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#8b5cf6]/50 disabled:cursor-not-allowed rounded-lg text-sm font-semibold text-white transition-all"
             >
-              Create Account
+              {isLoading ? "Signing In..." : "Sign In"}
             </button>
           </form>
 
@@ -147,12 +171,12 @@ export default function SignUpPage() {
             </div>
             <div className="relative flex justify-center text-[10px]">
               <span className="px-2 bg-[#272727] text-gray-500">
-                Signin
+                Or continue with
               </span>
             </div>
           </div>
 
-          {/* Login Link */}
+          {/* Sign Up Link */}
           <p className="text-center text-xs text-gray-400 mt-3">
             Don't have an account?{" "}
             <Link
@@ -164,11 +188,11 @@ export default function SignUpPage() {
           </p>
         </div>
 
-        {/* Welcome Bonus Badge */}
+        {/* Welcome Back Badge */}
         <div className="mt-3 text-center">
           <div className="inline-block px-3 py-1.5 bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 rounded-full">
             <span className="text-xs font-semibold text-[#8b5cf6]">
-              🎁 Get 10,000 coins on signup!
+              👋 Welcome back, Predictor!
             </span>
           </div>
         </div>

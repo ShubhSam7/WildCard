@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"iiitn-predict/packages/database"
 	"net/http"
 	"os"
@@ -101,12 +100,7 @@ func Signin(c *gin.Context){
         return
     }
 
-    c.Header("Authorization", "Bearer "+tokenString)
-	json.NewEncoder(c.Writer).Encode(map[string]string{
-		"token": tokenString,
-	})
-
-    c.JSON(http.StatusOK, gin.H{"msg": "Login is Successfull", "balance": user.Balance, "token": tokenString}) 
+    c.JSON(http.StatusOK, gin.H{"msg": "Login is Successfull", "balance": user.Balance, "token": tokenString})
 }
 
 func AdminLogin(c *gin.Context){
@@ -142,11 +136,6 @@ func AdminLogin(c *gin.Context){
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
         return
     }
-
-    c.Header("Authorization", "Bearer "+tokenString)
-	json.NewEncoder(c.Writer).Encode(map[string]string{
-		"token": tokenString,
-	})
 
     c.JSON(http.StatusOK, gin.H{"msg": "Admin is login is Successfull", "balance": user.Balance, "token": tokenString})
 }
