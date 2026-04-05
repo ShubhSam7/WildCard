@@ -31,8 +31,8 @@ export default function SignUpPage() {
         <div className="text-center mb-6">
           <Link href="/">
             <h1 className="text-2xl font-black tracking-tight mb-2 cursor-pointer hover:opacity-80 transition-opacity">
-              <span className="text-white">IIITN</span>
-              <span className="text-[#a6a5f2]">Predict</span>
+              <span className="text-white">Wild</span>
+              <span className="text-[#a6a5f2]">Card</span>
             </h1>
           </Link>
           <p className="text-gray-400 text-sm">
@@ -44,7 +44,7 @@ export default function SignUpPage() {
         <div className="bg-[#272727] border border-white/5 rounded-2xl p-7 backdrop-blur-xl">
           <h2 className="text-xl font-bold mb-2">Create Account</h2>
           <p className="text-gray-400 text-sm mb-6">
-            Sign up with your IIITN email to get started
+            Sign up with your email to get started
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -85,7 +85,7 @@ export default function SignUpPage() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="your.name@iiitn.ac.in"
+                  placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -210,7 +210,7 @@ export default function SignUpPage() {
           <p className="text-center text-xs text-gray-400 mt-3">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href="/signin"
               className="text-[#8b5cf6] hover:text-[#7c3aed] font-medium transition-colors"
             >
               Log In
@@ -222,7 +222,7 @@ export default function SignUpPage() {
         <div className="mt-3 text-center">
           <div className="inline-block px-3 py-1.5 bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 rounded-full">
             <span className="text-xs font-semibold text-[#8b5cf6]">
-              🎁 Get 10,000 coins on signup!
+              🎁 Get 10,000 tokens on signup!
             </span>
           </div>
         </div>
