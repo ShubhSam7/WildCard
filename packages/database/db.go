@@ -91,15 +91,16 @@ const (
 
 type User struct {
 	gorm.Model
-    ID          uint     `gorm:"primaryKey"`
-	Name         string   `gorm:"not null"`
-	Password     string   `gorm:"not null"`
-	Email        string   `gorm:"uniqueIndex;not null"`
-	Balance      float64  `gorm:"default:1000.0;not null"`
-	Role         RoleType `gorm:"default:'STUDENT'"`
-	Positions    []Position
-	Transactions []Transaction
-	Comments     []Comment
+	ID              uint     `gorm:"primaryKey"`
+	ClerkID         string   `gorm:"uniqueIndex;not null"`
+	Name            string   `gorm:"not null"`
+	Email           string   `gorm:"uniqueIndex;not null"`
+	ProfileImageUrl string   `gorm:"type:varchar(500)"`
+	WildCoins       float64  `gorm:"default:10000.0;not null"`
+	Role            RoleType `gorm:"default:'STUDENT'"`
+	Positions       []Position
+	Transactions    []Transaction
+	Comments        []Comment
 }
 
 type Market struct {

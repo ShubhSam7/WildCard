@@ -56,7 +56,7 @@ export default function LandingPage() {
 
             {/* Nav Links - Centered */}
             <div className="hidden md:flex gap-8 text-sm font-medium absolute left-1/2 -translate-x-1/2">
-              {["Markets", "Leaderboard", "Portfolio"].map((link) => (
+              {["Leaderboard", "Markets", "Footer"].map((link) => (
                 <a
                   key={link}
                   href={`#${link.toLowerCase()}`}
@@ -108,7 +108,7 @@ export default function LandingPage() {
             {/* CTA Buttons */}
             <div className="flex gap-4 flex-wrap">
               {/* Primary Button - Flat Solid */}
-              <button className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all">
+              <button onClick={() => window.location.href = '/dashboard'} className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all">
                 Start Predicting
               </button>
 
