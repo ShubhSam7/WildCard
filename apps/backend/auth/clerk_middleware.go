@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iiitn-predict/packages/database"
 	"math/big"
 	"net/http"
 	"os"
@@ -171,6 +172,12 @@ func ClerkMiddleware() gin.HandlerFunc {
 			c.Set("user_email", email)
 		}
 		
+		// Fetch local user by ClerkID and set user_id for backwards compatibility
+		var user database.User
+		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err == nil {
+			c.Set("user_id", user.ID)
+		}
+		
 		c.Next()
 	}
 }
@@ -193,23 +200,21 @@ func ClerkAdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// TODO: Check user role in database
-		// For now, you can check a custom claim or metadata from Clerk
-		// Example: Check if user has admin role in database
-		// var user database.User
-		// if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-		// 	c.Abort()
-		// 	return
-		// }
-		//
-		// if user.Role != database.RoleTypeAdmin {
-		// 	c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
-		// 	c.Abort()
-		// 	return
-		// }
+		// Fetch user from database by Clerk ID and check admin role
+		var user database.User
+		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
 
-		c.Set("clerk_user_id", clerkUserID)
+		if user.Role != database.RoleTypeAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", user.ID)
 		c.Next()
 	}
 }
