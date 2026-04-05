@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -18,7 +19,11 @@ func InitDB() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	dsn := os.Getenv("DATABASE_URL")
+	dsnRaw := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	dsn := strings.Trim(dsnRaw, "\"'")
+	if dsnRaw != dsn {
+		log.Println("DATABASE_URL had surrounding quotes; trimmed automatically")
+	}
 
 	if dsn == "" {
 		panic("DATABASE_URL is not set in environment")
@@ -91,7 +96,7 @@ const (
 
 type User struct {
 	gorm.Model
-    ID          uint     `gorm:"primaryKey"`
+	ID           uint     `gorm:"primaryKey"`
 	Name         string   `gorm:"not null"`
 	Password     string   `gorm:"not null"`
 	Email        string   `gorm:"uniqueIndex;not null"`
@@ -104,20 +109,20 @@ type User struct {
 
 type Market struct {
 	gorm.Model
-	Question    string       `gorm:"not null"`
-	Description string       `gorm:"type:text"`
-	ImageUrl    string       
+	Question    string `gorm:"not null"`
+	Description string `gorm:"type:text"`
+	ImageUrl    string
 	Category    CategoryType `gorm:"index"`
 	Status      MarketStatus `gorm:"default:'ACTIVE';index"`
-	
-	PoolYes     float64      `gorm:"default:0"`
-	PoolNo      float64      `gorm:"default:0"`
-	
-	Probability float64      `gorm:"default:50.0"`
-	
-	EndTime     time.Time    `gorm:"not null"`
-	Outcome     *bool        
-	
+
+	PoolYes float64 `gorm:"default:0"`
+	PoolNo  float64 `gorm:"default:0"`
+
+	Probability float64 `gorm:"default:50.0"`
+
+	EndTime time.Time `gorm:"not null"`
+	Outcome *bool
+
 	Positions     []Position
 	MarketHistory []MarketHistory
 	Comments      []Comment
@@ -125,8 +130,8 @@ type Market struct {
 
 type MarketHistory struct {
 	gorm.Model
-	MarketID    uint      `gorm:"not null;index"`
-	Probability float64   `gorm:"not null"`
+	MarketID    uint    `gorm:"not null;index"`
+	Probability float64 `gorm:"not null"`
 }
 
 type Position struct {
@@ -143,8 +148,8 @@ type Transaction struct {
 	UserID      uint            `gorm:"not null;index"`
 	Amount      float64         `gorm:"not null"`
 	Type        TransactionType `gorm:"not null"`
-	MarketID    *uint           
-	Description string          
+	MarketID    *uint
+	Description string
 }
 
 type Comment struct {
