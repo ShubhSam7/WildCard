@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"iiitn-predict/packages/database"
 	"net/http"
 	"os"
@@ -102,10 +101,6 @@ func Signin(c *gin.Context){
     }
 
     c.Header("Authorization", "Bearer "+tokenString)
-	json.NewEncoder(c.Writer).Encode(map[string]string{
-		"token": tokenString,
-	})
-
     c.JSON(http.StatusOK, gin.H{"msg": "Login is Successfull", "balance": user.Balance, "token": tokenString}) 
 }
 
@@ -144,9 +139,5 @@ func AdminLogin(c *gin.Context){
     }
 
     c.Header("Authorization", "Bearer "+tokenString)
-	json.NewEncoder(c.Writer).Encode(map[string]string{
-		"token": tokenString,
-	})
-
     c.JSON(http.StatusOK, gin.H{"msg": "Admin is login is Successfull", "balance": user.Balance, "token": tokenString})
 }

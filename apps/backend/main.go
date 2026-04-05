@@ -4,13 +4,19 @@ import (
 	"iiitn-predict/apps/backend/auth"
 	"iiitn-predict/apps/backend/bet"
 	"iiitn-predict/packages/database"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	if strings.TrimSpace(os.Getenv("JWT_SECRET")) == "" {
+		log.Fatal("JWT_SECRET is not set in environment")
+	}
+
     database.InitDB()
-    database.SeedAdmin()
     r := gin.Default()
 
     authGroup := r.Group("/auth")
@@ -38,5 +44,16 @@ func main() {
             "message": "IIITN Predict Backend is Live!",
         })
     })
-    r.Run(":8080")
+
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8080"
+	}
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
+	}
+
+	if err := r.Run(port); err != nil {
+		log.Fatal(err)
+	}
 }
