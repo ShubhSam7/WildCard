@@ -59,6 +59,36 @@ func InitDB() {
 			log.Printf("Warning: Failed to drop old 'amount' column: %v", err)
 		}
 	}
+
+	// Manual migration: Clerk authentication changes
+	log.Println("Running Clerk authentication migrations...")
+	
+	// 1. Drop password column if it exists (Clerk handles passwords now)
+	if DB.Migrator().HasColumn(&User{}, "password") {
+		log.Println("Dropping 'password' column from users table (Clerk handles auth)...")
+		if err := DB.Migrator().DropColumn(&User{}, "password"); err != nil {
+			log.Printf("Warning: Failed to drop 'password' column: %v", err)
+		}
+	}
+	
+	// 2. Rename balance to wild_coins if needed
+	if DB.Migrator().HasColumn(&User{}, "balance") {
+		log.Println("Renaming 'balance' column to 'wild_coins'...")
+		if err := DB.Migrator().RenameColumn(&User{}, "balance", "wild_coins"); err != nil {
+			log.Printf("Warning: Failed to rename 'balance' column: %v", err)
+		}
+	}
+	
+	// 3. Rename CLERKID to clerk_id if needed (standardize naming)
+	if DB.Migrator().HasColumn(&User{}, "clerkid") {
+		log.Println("Renaming 'clerkid' column to 'clerk_id'...")
+		if err := DB.Migrator().RenameColumn(&User{}, "clerkid", "clerk_id"); err != nil {
+			log.Printf("Warning: Failed to rename 'clerkid' column: %v", err)
+		}
+	}
+	
+	// Note: profile_image_url will be added automatically by AutoMigrate above
+	log.Println("Clerk authentication migrations completed!")
 }
 
 type RoleType string
@@ -96,15 +126,16 @@ const (
 
 type User struct {
 	gorm.Model
-	ID           uint     `gorm:"primaryKey"`
-	Name         string   `gorm:"not null"`
-	Password     string   `gorm:"not null"`
-	Email        string   `gorm:"uniqueIndex;not null"`
-	Balance      float64  `gorm:"default:1000.0;not null"`
-	Role         RoleType `gorm:"default:'STUDENT'"`
-	Positions    []Position
-	Transactions []Transaction
-	Comments     []Comment
+	ID              uint     `gorm:"primaryKey"`
+	ClerkID         string   `gorm:"uniqueIndex;not null"`
+	Name            string   `gorm:"not null"`
+	Email           string   `gorm:"uniqueIndex;not null"`
+	ProfileImageUrl string   `gorm:"type:varchar(500)"`
+	WildCoins       float64  `gorm:"default:10000.0;not null"`
+	Role            RoleType `gorm:"default:'STUDENT'"`
+	Positions       []Position
+	Transactions    []Transaction
+	Comments        []Comment
 }
 
 type Market struct {

@@ -97,7 +97,7 @@ func PlaceBet(c *gin.Context) {
 		}
 
 		// C. Validations
-		if user.Balance < (float64)(req.Amount) {
+		if user.WildCoins < (float64)(req.Amount) {
 			return fmt.Errorf("insufficient balance")
 		}
 		if market.Status != database.StatusActive || time.Now().After(market.EndTime) {
@@ -132,7 +132,7 @@ func PlaceBet(c *gin.Context) {
 		// E. UPDATE DATABASE
 		
 		// 1. Deduct Money
-		user.Balance -= (float64)(req.Amount)
+		user.WildCoins -= (float64)(req.Amount)
 		if err := tx.Save(&user).Error; err != nil {
 			return err
 		}

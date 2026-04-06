@@ -1,36 +1,44 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { TrendingUp, Wallet, Trophy, Clock, Users } from "lucide-react";
 
 export default function LandingPage() {
   const liveMarkets = [
     {
       id: 1,
-      category: "CULTURAL",
-      question: "Will Abhivyakti be postponed this year?",
+      category: "TECH",
+      question: "Will a major AI model launch this quarter?",
       yesPercent: 65,
       noPercent: 35,
-      volume: "₹45,200",
+      volume: "45.2k tokens",
       endsIn: "18 hrs",
     },
     {
       id: 2,
       category: "SPORTS",
-      question: "Will CSE win the Inter-Branch Cricket Tournament?",
+      question: "Will an underdog win a top-tier league this season?",
       yesPercent: 42,
       noPercent: 58,
-      volume: "₹38,900",
+      volume: "38.9k tokens",
       endsIn: "2 days",
     },
     {
       id: 3,
-      category: "CAMPUS",
-      question: "Will mid-sem exams be conducted online?",
+      category: "CRYPTO",
+      question: "Will Bitcoin outperform Ethereum this month?",
       yesPercent: 78,
       noPercent: 22,
-      volume: "₹62,100",
+      volume: "62.1k tokens",
       endsIn: "5 hrs",
+    },
+    {
+      id: 4,
+      category: "ECONOMY",
+      question: "Will inflation fall below forecasts this quarter?",
+      yesPercent: 54,
+      noPercent: 46,
+      volume: "51.6k tokens",
+      endsIn: "3 days",
     },
   ];
 
@@ -42,13 +50,13 @@ export default function LandingPage() {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <h1 className="text-2xl font-black tracking-tight">
-              <span className="text-white">IIITN</span>
-              <span className="text-[#a6a5f2]">Predict</span>
+              <span className="text-white">Wild</span>
+              <span className="text-[#a6a5f2]">Card</span>
             </h1>
 
             {/* Nav Links - Centered */}
             <div className="hidden md:flex gap-8 text-sm font-medium absolute left-1/2 -translate-x-1/2">
-              {["Markets", "Leaderboard", "Portfolio"].map((link) => (
+              {["Leaderboard", "Markets", "Footer"].map((link) => (
                 <a
                   key={link}
                   href={`#${link.toLowerCase()}`}
@@ -62,7 +70,8 @@ export default function LandingPage() {
 
             {/* Auth Buttons */}
             <div className="flex items-center gap-3">
-              <button className="px-5 py-2 text-sm font-semibold hover:text-[#a6a5f2] transition-colors">
+              <button onClick={() => window.location.href = '/signin'}
+              className="px-5 py-2 text-sm font-semibold hover:text-[#a6a5f2] transition-colors">
                 Log In
               </button>
               <button onClick={() => window.location.href = '/signup'}
@@ -81,7 +90,7 @@ export default function LandingPage() {
           <div className="space-y-8">
             <div className="space-y-4">
               <div className="inline-block px-4 py-1.5 bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 rounded-full text-sm font-semibold text-[#8b5cf6]">
-                🎮 Campus Prediction Market
+                🌍 Global Prediction Market
               </div>
 
               <h2 className="text-5xl md:text-7xl font-black leading-tight">
@@ -91,15 +100,15 @@ export default function LandingPage() {
               <p className="text-xl text-gray-400 leading-relaxed">
                 The ultimate{" "}
                 <span className="text-white font-bold">gamified</span>{" "}
-                prediction platform for IIIT Nagpur. Trade virtual coins,
-                compete with peers, and climb the leaderboard.
+                prediction market. Trade virtual tokens, follow odds, and climb
+                the leaderboard.
               </p>
             </div>
 
             {/* CTA Buttons */}
             <div className="flex gap-4 flex-wrap">
               {/* Primary Button - Flat Solid */}
-              <button className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all">
+              <button onClick={() => window.location.href = '/dashboard'} className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all">
                 Start Predicting
               </button>
 
@@ -113,7 +122,7 @@ export default function LandingPage() {
             <div className="flex gap-8 pt-6 border-t border-white/10">
               {[
                 { label: "Active Markets", value: "47" },
-                { label: "Total Volume", value: "₹2.4M" },
+                { label: "Total Volume", value: "2.4M tokens" },
                 { label: "Players", value: "1.2K+" },
               ].map((stat, i) => (
                 <div key={i} className="space-y-1">
@@ -208,8 +217,8 @@ export default function LandingPage() {
               </a>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {liveMarkets.map((market, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {liveMarkets.map((market) => (
                 <div
                   key={market.id}
                   className="rounded-2xl p-6 bg-[#272727] border border-white/5 hover:border-[#8b5cf6]/30 cursor-pointer transition-all"
@@ -277,9 +286,9 @@ export default function LandingPage() {
               {[
                 {
                   icon: Wallet,
-                  title: "Get 10k Coins",
+                  title: "Get 10k Tokens",
                   description:
-                    "Sign up with your IIITN email and receive 10,000 virtual coins to start trading.",
+                    "Sign up with your email and receive 10,000 virtual tokens to start trading.",
                 },
                 {
                   icon: TrendingUp,
@@ -338,7 +347,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-12 px-6 border-t border-[#a9f99e]/10">
         <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-          <p>© 2026 IIITN Predict. Built for IIIT Nagpur students with 💜</p>
+          <p>© 2026 WildCard. A global prediction market for opinions.</p>
         </div>
       </footer>
     </div>
