@@ -74,12 +74,42 @@ func InitDB() {
 		}
 	}
 	
-	// 3. Rename CLERKID to clerk_id if needed (standardize naming)
+	// 3. Add clerk_id column if it doesn't exist (handle both new and existing tables)
+	if !DB.Migrator().HasColumn(&User{}, "clerk_id") && !DB.Migrator().HasColumn(&User{}, "clerkid") {
+		log.Println("Adding 'clerk_id' column to users table...")
+		// Add as nullable first, then we'll handle the constraint
+		if err := DB.Exec("ALTER TABLE users ADD COLUMN clerk_id TEXT").Error; err != nil {
+			log.Printf("Warning: Failed to add 'clerk_id' column: %v", err)
+		}
+	}
+	
+	// 4. Rename clerkid to clerk_id if needed (standardize naming)
 	if DB.Migrator().HasColumn(&User{}, "clerkid") {
 		log.Println("Renaming 'clerkid' column to 'clerk_id'...")
 		if err := DB.Migrator().RenameColumn(&User{}, "clerkid", "clerk_id"); err != nil {
 			log.Printf("Warning: Failed to rename 'clerkid' column: %v", err)
 		}
+	}
+	
+	// 5. For existing rows with null clerk_id, generate a placeholder value
+	// This allows the migration to proceed - you should update these values properly later
+	var nullClerkIdCount int64
+	DB.Model(&User{}).Where("clerk_id IS NULL OR clerk_id = ''").Count(&nullClerkIdCount)
+	if nullClerkIdCount > 0 {
+		log.Printf("Found %d users without clerk_id, setting placeholder values...", nullClerkIdCount)
+		// Set placeholder clerk_id based on user ID to maintain uniqueness
+		if err := DB.Exec("UPDATE users SET clerk_id = 'migration_placeholder_' || id::text WHERE clerk_id IS NULL OR clerk_id = ''").Error; err != nil {
+			log.Printf("Warning: Failed to update null clerk_id values: %v", err)
+		}
+	}
+	
+	// 6. Add NOT NULL and UNIQUE constraints if they don't exist
+	if DB.Migrator().HasColumn(&User{}, "clerk_id") {
+		log.Println("Adding constraints to clerk_id column...")
+		// Add NOT NULL constraint
+		DB.Exec("ALTER TABLE users ALTER COLUMN clerk_id SET NOT NULL")
+		// Add unique index if it doesn't exist
+		DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk_id ON users(clerk_id)")
 	}
 	
 	// Note: profile_image_url will be added automatically by AutoMigrate above
@@ -122,7 +152,7 @@ const (
 type User struct {
 	gorm.Model
 	ID              uint     `gorm:"primaryKey"`
-	ClerkID         string   `gorm:"uniqueIndex;not null"`
+	ClerkID         string   `gorm:"uniqueIndex"`
 	Name            string   `gorm:"not null"`
 	Email           string   `gorm:"uniqueIndex;not null"`
 	ProfileImageUrl string   `gorm:"type:varchar(500)"`
