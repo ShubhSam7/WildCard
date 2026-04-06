@@ -12,13 +12,11 @@ import (
 	svix "github.com/svix/svix-webhooks/go"
 )
 
-// ClerkWebhookEvent represents the structure of a Clerk webhook event
 type ClerkWebhookEvent struct {
 	Type string          `json:"type"`
 	Data ClerkUserData   `json:"data"`
 }
 
-// ClerkUserData represents user data from Clerk webhook
 type ClerkUserData struct {
 	ID                string                 `json:"id"`
 	FirstName         string                 `json:"first_name"`
@@ -28,15 +26,12 @@ type ClerkUserData struct {
 	PrimaryEmailID    string                 `json:"primary_email_address_id"`
 }
 
-// ClerkEmailAddress represents an email address from Clerk
 type ClerkEmailAddress struct {
 	ID           string `json:"id"`
 	EmailAddress string `json:"email_address"`
 }
 
-// ClerkWebhook handles incoming webhooks from Clerk
 func ClerkWebhook(c *gin.Context) {
-	// Get webhook secret from environment
 	webhookSecret := os.Getenv("CLERK_WEBHOOK_SECRET")
 	if webhookSecret == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Webhook secret not configured"})

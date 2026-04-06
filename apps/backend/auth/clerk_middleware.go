@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,19 @@ var (
 	jwksLastFetch time.Time
 )
 
+func normalizeClerkDomain(value string) string {
+	domain := strings.TrimSpace(value)
+	domain = strings.TrimPrefix(domain, "https://")
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimSuffix(domain, "/")
+
+	if idx := strings.Index(domain, "/"); idx != -1 {
+		domain = domain[:idx]
+	}
+
+	return domain
+}
+
 // fetchClerkJWKS fetches and caches Clerk's public keys
 func fetchClerkJWKS() (*ClerkJWKS, error) {
 	// Cache JWKS for 1 hour
@@ -42,7 +56,7 @@ func fetchClerkJWKS() (*ClerkJWKS, error) {
 		return clerkJWKS, nil
 	}
 
-	clerkDomain := os.Getenv("CLERK_DOMAIN")
+	clerkDomain := normalizeClerkDomain(os.Getenv("CLERK_DOMAIN"))
 	if clerkDomain == "" {
 		clerkDomain = "clerk.dev" // Default for development
 	}
@@ -166,18 +180,18 @@ func ClerkMiddleware() gin.HandlerFunc {
 
 		// Store Clerk user ID in context
 		c.Set("clerk_user_id", clerkUserID)
-		
+
 		// Optional: Store other useful claims
 		if email, ok := claims["email"].(string); ok {
 			c.Set("user_email", email)
 		}
-		
+
 		// Fetch local user by ClerkID and set user_id for backwards compatibility
 		var user database.User
 		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err == nil {
 			c.Set("user_id", user.ID)
 		}
-		
+
 		c.Next()
 	}
 }
@@ -187,7 +201,7 @@ func ClerkAdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// First validate the token using ClerkMiddleware
 		ClerkMiddleware()(c)
-		
+
 		if c.IsAborted() {
 			return
 		}
@@ -225,7 +239,7 @@ func GetClerkUserID(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	
+
 	clerkID, ok := userID.(string)
 	return clerkID, ok
 }
