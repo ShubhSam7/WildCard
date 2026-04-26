@@ -31,12 +31,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" className={`${spaceGrotesk.variable} ${manrope.variable}`}>
-        <body>
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${manrope.variable}`}
+      suppressHydrationWarning
+    >
+      <body suppressHydrationWarning>
+        <ClerkProvider>{children}</ClerkProvider>
+      </body>
+    </html>
   );
 }

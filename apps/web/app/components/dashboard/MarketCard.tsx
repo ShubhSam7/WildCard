@@ -1,23 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../ui/Card";
+import React from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "../ui/Card";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { TradingModal } from "./TradingModal";
 import { cn } from "../../lib/utils";
+import { TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 /**
- * MarketCard - Individual prediction market card
- * 
+ * MarketCard - Compact clickable prediction market card
+ *
  * Features:
- * - Asymmetric layout
- * - YES/NO buttons with glows
- * - Volume and liquidity badges
- * - Trending indicator
+ * - Compact layout for grid display
+ * - Entire card clickable, routes to /bet/[id]
+ * - Prominent YES/NO percentage distribution progress bar
+ * - Optimized typography and spacing
  */
 
 interface MarketCardProps {
+  id?: number;
   question: string;
   category: string;
   yesPrice: number;
@@ -30,6 +37,7 @@ interface MarketCardProps {
 }
 
 export function MarketCard({
+  id = 1, // Default ID if not provided
   question,
   category,
   yesPrice,
@@ -40,115 +48,83 @@ export function MarketCard({
   endDate,
   className,
 }: MarketCardProps) {
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
-
   return (
-    <>
-      <Card hoverable className={cn("group", className)}>
-      <CardHeader>
-        <div className="flex items-start justify-between mb-3">
-          <Badge variant="tertiary" size="sm">
-            {category}
-          </Badge>
-          {trending && (
-            <Badge variant="tertiary" size="sm">
-              🔥 TRENDING
+    <Link href={`/bet/${id}`} className="block group">
+      <Card
+        hoverable
+        className={cn(
+          "h-full min-h-[220px] aspect-[4/3] transition-all duration-200",
+          "hover:ring-2 hover:ring-primary/50 hover:-translate-y-1",
+          className,
+        )}
+      >
+        <CardHeader className="pb-2 px-3 pt-3">
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <Badge variant="tertiary" size="sm" className="text-xs py-0.5 px-2">
+              {category}
             </Badge>
-          )}
-        </div>
-        <CardTitle className="group-hover:text-primary transition-colors duration-200">
-          {question}
-        </CardTitle>
-      </CardHeader>
+            {trending && (
+              <Badge
+                variant="tertiary"
+                size="sm"
+                className="flex items-center gap-1 text-xs py-0.5 px-2"
+              >
+                <TrendingUp className="w-2.5 h-2.5" />
+                HOT
+              </Badge>
+            )}
+          </div>
+          <CardTitle className="group-hover:text-primary transition-colors duration-200 text-sm leading-tight line-clamp-2">
+            {question}
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent>
-        {/* Price Display */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <PriceBox label="YES" price={yesPrice} variant="yes" />
-          <PriceBox label="NO" price={noPrice} variant="no" />
-        </div>
+        <CardContent className="pb-2 px-3">
+          {/* Prominent YES/NO Distribution Bar */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-secondary">
+                YES {yesPrice}%
+              </span>
+              <span className="text-xs font-medium text-error">
+                NO {noPrice}%
+              </span>
+            </div>
+            <div className="h-1.5 bg-surface-high rounded-full overflow-hidden flex">
+              <div
+                className="bg-secondary transition-all duration-300"
+                style={{ width: `${yesPrice}%` }}
+              />
+              <div
+                className="bg-error transition-all duration-300"
+                style={{ width: `${noPrice}%` }}
+              />
+            </div>
+          </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-on-variant">
-          <StatItem label="VOLUME" value={volume24h} />
-          <div className="h-4 w-px bg-surface-high" />
-          <StatItem label="LIQUIDITY" value={liquidity} />
-        </div>
-      </CardContent>
+          {/* Compact Stats */}
+          <div className="flex items-center gap-2 text-on-variant text-xs">
+            <div className="flex items-center gap-1">
+              <span className="text-on-variant">Vol:</span>
+              <span className="text-on-surface font-medium">{volume24h}</span>
+            </div>
+            <div className="h-2.5 w-px bg-surface-variant" />
+            <div className="flex items-center gap-1">
+              <span className="text-on-variant">Liq:</span>
+              <span className="text-on-surface font-medium">{liquidity}</span>
+            </div>
+          </div>
+        </CardContent>
 
-      <CardFooter>
-        <div className="flex items-center gap-3 w-full">
-          <Button 
-            variant="yes" 
-            size="sm" 
-            fullWidth
-            onClick={() => setIsTradeModalOpen(true)}
-          >
-            Trade YES
-          </Button>
-          <Button 
-            variant="no" 
-            size="sm" 
-            fullWidth
-            onClick={() => setIsTradeModalOpen(true)}
-          >
-            Trade NO
-          </Button>
-        </div>
-        <span className="body-sm text-on-variant">
-          Ends {endDate}
-        </span>
-      </CardFooter>
-    </Card>
-
-    <TradingModal
-      isOpen={isTradeModalOpen}
-      onClose={() => setIsTradeModalOpen(false)}
-      market={{
-        question,
-        category,
-        yesPrice,
-        noPrice,
-        volume24h,
-        liquidity,
-      }}
-    />
-    </>
-  );
-}
-
-function PriceBox({ 
-  label, 
-  price, 
-  variant 
-}: { 
-  label: string; 
-  price: number; 
-  variant: "yes" | "no"; 
-}) {
-  return (
-    <div className={cn(
-      "p-3 rounded-lg transition-all duration-200",
-      variant === "yes" ? "bg-secondary bg-opacity-10" : "bg-error bg-opacity-10"
-    )}>
-      <p className="label-sm mb-1">
-        {label}
-      </p>
-      <p className={cn(
-        "title-lg font-bold",
-        variant === "yes" ? "text-secondary" : "text-error"
-      )}>
-        {price}¢
-      </p>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="label-sm mb-1">{label}</p>
-      <p className="body-md text-on-surface">{value}</p>
-    </div>
+        <CardFooter className="pt-2 pb-3 px-3 border-t border-surface-variant">
+          <div className="flex items-center justify-between w-full gap-2">
+            <span className="text-xs text-on-variant">{endDate}</span>
+            <span className="text-xs text-primary font-medium group-hover:underline">
+              View Details →
+            </span>
+          </div>
+        </CardFooter>
+      </Card>
+    </Link>
   );
 }

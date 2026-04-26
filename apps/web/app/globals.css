@@ -19,6 +19,7 @@
     font-family: var(--font-manrope), sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -28,7 +29,12 @@
   }
 
   /* Headings use Space Grotesk */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-space-grotesk), sans-serif;
     color: var(--on-background);
   }
@@ -82,7 +88,11 @@
 
   /* Gradient Fills */
   .gradient-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-container));
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      var(--primary-container)
+    );
   }
 
   /* Glow Effects - For Interactive Elements */
@@ -139,6 +149,13 @@
     font-size: 1.25rem;
     font-weight: 600;
     line-height: 1.3;
+  }
+
+  .title-sm {
+    font-family: var(--font-space-grotesk), sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
   }
 
   .body-lg {
@@ -277,7 +294,11 @@ a {
 }
 
 .cl-formButtonPrimary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-container)) !important;
+  background: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--primary-container)
+  ) !important;
   color: var(--on-primary) !important;
   text-transform: none !important;
 }
@@ -342,7 +363,8 @@ button:active {
 
 /* Pulse animation for live data */
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -362,7 +384,9 @@ nav .glass {
 
 /* Smooth color transitions */
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke,
+    opacity, box-shadow, transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -371,3 +395,12 @@ nav .glass {
   transition: none !important;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

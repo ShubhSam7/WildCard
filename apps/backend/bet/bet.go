@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"iiitn-predict/packages/database"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
-
-// ─── Market Response DTOs ──────────────────────────────────────────────────
 
 type MarketResponse struct {
 	ID          uint    `json:"id"`
@@ -27,22 +26,72 @@ type MarketResponse struct {
 	Trending    bool    `json:"trending"`
 }
 
-// ─── GET /bet/markets?category=ALL ────────────────────────────────────────
+type LeaderboardEntry struct {
+	Rank            int     `json:"rank"`
+	Name            string  `json:"name"`
+	ProfileImageUrl string  `json:"profile_image_url"`
+	WildCoins       float64 `json:"wild_coins"`
+}
+
+type PortfolioSummaryResponse struct {
+	TotalInvested   float64 `json:"total_invested"`
+	TotalValue      float64 `json:"total_value"`
+	TotalPnL        float64 `json:"total_pnl"`
+	TotalPnLPercent float64 `json:"total_pnl_percent"`
+	ActivePositions int     `json:"active_positions"`
+}
+
+type PortfolioPositionResponse struct {
+	ID           uint    `json:"id"`
+	MarketID     uint    `json:"market_id"`
+	Question     string  `json:"question"`
+	Position     string  `json:"position"`
+	Shares       float64 `json:"shares"`
+	AvgPrice     float64 `json:"avg_price"`
+	CurrentPrice float64 `json:"current_price"`
+	Invested     float64 `json:"invested"`
+	CurrentValue float64 `json:"current_value"`
+	PnL          float64 `json:"pnl"`
+	PnLPercent   float64 `json:"pnl_percent"`
+	EndTime      string  `json:"end_time"`
+}
+
+type PortfolioActivityResponse struct {
+	ID          uint    `json:"id"`
+	Type        string  `json:"type"`
+	Description string  `json:"description"`
+	Amount      float64 `json:"amount"`
+	MarketID    *uint   `json:"market_id"`
+	MarketTitle string  `json:"market_title"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+func validCategory(category string) bool {
+	switch database.CategoryType(category) {
+	case database.CategoryTech, database.CategorySports, database.CategoryCrypto, database.CategoryCampus:
+		return true
+	default:
+		return false
+	}
+}
 
 func GetMarkets(c *gin.Context) {
-	category := c.Query("category")
+	categoryRaw := strings.ToUpper(strings.TrimSpace(c.Query("category")))
 
 	var markets []database.Market
 	query := database.DB.Where("status = ?", database.StatusActive)
-	if category != "" && category != "ALL" {
-		query = query.Where("category = ?", database.CategoryType(category))
+	if categoryRaw != "" && categoryRaw != "ALL" {
+		if !validCategory(categoryRaw) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid category"})
+			return
+		}
+		query = query.Where("category = ?", database.CategoryType(categoryRaw))
 	}
 	if err := query.Order("created_at DESC").Find(&markets).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch markets"})
 		return
 	}
 
-	// Find IDs of top 3 trending markets by total pool
 	trendingIDs := map[uint]bool{}
 	type poolResult struct {
 		ID        uint
@@ -55,11 +104,12 @@ func GetMarkets(c *gin.Context) {
 		Order("total_pool DESC").
 		Limit(3).
 		Scan(&poolResults)
+
 	for _, r := range poolResults {
 		trendingIDs[r.ID] = true
 	}
 
-	var result []MarketResponse
+	result := make([]MarketResponse, 0, len(markets))
 	for _, m := range markets {
 		totalPool := m.PoolYes + m.PoolNo
 		yesPrice := 50.0
@@ -68,6 +118,7 @@ func GetMarkets(c *gin.Context) {
 			yesPrice = (m.PoolYes / totalPool) * 100
 			noPrice = (m.PoolNo / totalPool) * 100
 		}
+
 		result = append(result, MarketResponse{
 			ID:          m.ID,
 			Question:    m.Question,
@@ -84,25 +135,14 @@ func GetMarkets(c *gin.Context) {
 		})
 	}
 
-	if result == nil {
-		result = []MarketResponse{}
-	}
 	c.JSON(http.StatusOK, result)
-}
-
-// ─── GET /leaderboard ─────────────────────────────────────────────────────
-
-type LeaderboardEntry struct {
-	Rank            int     `json:"rank"`
-	Name            string  `json:"name"`
-	ProfileImageUrl string  `json:"profile_image_url"`
-	WildCoins       float64 `json:"wild_coins"`
 }
 
 func GetLeaderboard(c *gin.Context) {
 	var users []database.User
 	if err := database.DB.
 		Order("wild_coins DESC").
+		Order("created_at ASC").
 		Limit(50).
 		Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch leaderboard"})
@@ -118,10 +158,9 @@ func GetLeaderboard(c *gin.Context) {
 			WildCoins:       u.WildCoins,
 		})
 	}
+
 	c.JSON(http.StatusOK, entries)
 }
-
-// ─── GET /user/balance  (requires ClerkMiddleware) ─────────────────────────
 
 func GetUserBalance(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -129,18 +168,18 @@ func GetUserBalance(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+
 	var user database.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"wildCoins": user.WildCoins,
 		"name":      user.Name,
 	})
 }
-
-// ─── GET /user/stats  (requires ClerkMiddleware) ──────────────────────────
 
 func GetUserStats(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -148,23 +187,166 @@ func GetUserStats(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+
 	var user database.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+
 	var activePositions int64
 	database.DB.Model(&database.Position{}).Where("user_id = ?", userID).Count(&activePositions)
+
 	c.JSON(http.StatusOK, gin.H{
 		"wildCoins":       user.WildCoins,
 		"activePositions": activePositions,
 	})
 }
 
+func GetUserPortfolio(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	type positionRow struct {
+		ID          uint
+		MarketID    uint
+		IsYes       bool
+		Shares      float64
+		AmountSpent float64
+		Question    string
+		EndTime     time.Time
+		PoolYes     float64
+		PoolNo      float64
+	}
+
+	var rows []positionRow
+	if err := database.DB.Table("positions p").
+		Select("p.id, p.market_id, p.is_yes, p.shares, p.amount_spent, m.question, m.end_time, m.pool_yes, m.pool_no").
+		Joins("JOIN markets m ON m.id = p.market_id").
+		Where("p.user_id = ?", userID).
+		Order("p.created_at DESC").
+		Scan(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch portfolio"})
+		return
+	}
+
+	positions := make([]PortfolioPositionResponse, 0, len(rows))
+	totalInvested := 0.0
+	totalValue := 0.0
+
+	for _, row := range rows {
+		totalPool := row.PoolYes + row.PoolNo
+		yesPrice := 50.0
+		noPrice := 50.0
+		if totalPool > 0 {
+			yesPrice = (row.PoolYes / totalPool) * 100
+			noPrice = (row.PoolNo / totalPool) * 100
+		}
+
+		currentPricePercent := noPrice
+		positionLabel := "NO"
+		if row.IsYes {
+			currentPricePercent = yesPrice
+			positionLabel = "YES"
+		}
+
+		avgPrice := 0.0
+		if row.Shares > 0 {
+			avgPrice = (row.AmountSpent / row.Shares) * 100
+		}
+
+		currentValue := row.Shares * (currentPricePercent / 100)
+		pnl := currentValue - row.AmountSpent
+		pnlPercent := 0.0
+		if row.AmountSpent > 0 {
+			pnlPercent = (pnl / row.AmountSpent) * 100
+		}
+
+		totalInvested += row.AmountSpent
+		totalValue += currentValue
+
+		positions = append(positions, PortfolioPositionResponse{
+			ID:           row.ID,
+			MarketID:     row.MarketID,
+			Question:     row.Question,
+			Position:     positionLabel,
+			Shares:       row.Shares,
+			AvgPrice:     avgPrice,
+			CurrentPrice: currentPricePercent,
+			Invested:     row.AmountSpent,
+			CurrentValue: currentValue,
+			PnL:          pnl,
+			PnLPercent:   pnlPercent,
+			EndTime:      row.EndTime.Format("Jan 02, 2006"),
+		})
+	}
+
+	totalPnL := totalValue - totalInvested
+	totalPnLPercent := 0.0
+	if totalInvested > 0 {
+		totalPnLPercent = (totalPnL / totalInvested) * 100
+	}
+
+	type transactionRow struct {
+		ID          uint
+		Type        string
+		Description string
+		Amount      float64
+		MarketID    *uint
+		CreatedAt   time.Time
+		Question    *string
+	}
+
+	var transactionRows []transactionRow
+	if err := database.DB.Table("transactions t").
+		Select("t.id, t.type, t.description, t.amount, t.market_id, t.created_at, m.question").
+		Joins("LEFT JOIN markets m ON m.id = t.market_id").
+		Where("t.user_id = ?", userID).
+		Order("t.created_at DESC").
+		Limit(10).
+		Scan(&transactionRows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch activity"})
+		return
+	}
+
+	activities := make([]PortfolioActivityResponse, 0, len(transactionRows))
+	for _, row := range transactionRows {
+		title := ""
+		if row.Question != nil {
+			title = *row.Question
+		}
+
+		activities = append(activities, PortfolioActivityResponse{
+			ID:          row.ID,
+			Type:        row.Type,
+			Description: row.Description,
+			Amount:      row.Amount,
+			MarketID:    row.MarketID,
+			MarketTitle: title,
+			CreatedAt:   row.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"summary": PortfolioSummaryResponse{
+			TotalInvested:   totalInvested,
+			TotalValue:      totalValue,
+			TotalPnL:        totalPnL,
+			TotalPnLPercent: totalPnLPercent,
+			ActivePositions: len(positions),
+		},
+		"positions":  positions,
+		"activities": activities,
+	})
+}
+
 type CreateBetRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	EndTime     time.Time `json:"end_time"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	EndTime     time.Time             `json:"end_time"`
 	Category    database.CategoryType `json:"category" binding:"required"`
 	InitialPool float64               `json:"initial_pool"`
 }
@@ -187,7 +369,7 @@ func CreateBet(c *gin.Context) {
 		Category:    req.Category,
 		EndTime:     req.EndTime,
 		Status:      database.StatusActive,
-		
+
 		// Initialize Pools for AMM Logic
 		PoolYes:     seed,
 		PoolNo:      seed,
@@ -209,9 +391,9 @@ func CreateBet(c *gin.Context) {
 }
 
 type PlaceBetRequest struct {
-	Amount    int32 `json:"amount"`
-	MarketID  uint    `json:"market_id"`
-	IsYes     bool    `json:"is_yes"`
+	Amount   int32 `json:"amount"`
+	MarketID uint  `json:"market_id"`
+	IsYes    bool  `json:"is_yes"`
 }
 
 func PlaceBet(c *gin.Context) {
@@ -257,9 +439,9 @@ func PlaceBet(c *gin.Context) {
 		}
 
 		// D. CALCULATE SHARES & PRICE (Simplified AMM Logic)
-		// Logic: Price = Pool / (PoolYes + PoolNo). 
+		// Logic: Price = Pool / (PoolYes + PoolNo).
 		// If many people bet YES, PoolYes gets bigger -> Price of YES goes UP.
-		
+
 		currentPoolYes := market.PoolYes
 		currentPoolNo := market.PoolNo
 		totalPool := currentPoolYes + currentPoolNo
@@ -275,14 +457,18 @@ func PlaceBet(c *gin.Context) {
 		}
 
 		// Safety: Prevent price from being 0 or 1 completely
-		if pricePerShare < 0.01 { pricePerShare = 0.01 }
-		if pricePerShare > 0.99 { pricePerShare = 0.99 }
+		if pricePerShare < 0.01 {
+			pricePerShare = 0.01
+		}
+		if pricePerShare > 0.99 {
+			pricePerShare = 0.99
+		}
 
 		// Calculate Shares received
 		sharesReceived := (float64)(req.Amount) / pricePerShare
 
 		// E. UPDATE DATABASE
-		
+
 		// 1. Deduct Money
 		user.WildCoins -= (float64)(req.Amount)
 		if err := tx.Save(&user).Error; err != nil {
@@ -295,11 +481,11 @@ func PlaceBet(c *gin.Context) {
 		} else {
 			market.PoolNo += (float64)(req.Amount)
 		}
-		
+
 		// New Probability for the Graph (Always track YES probability)
 		newTotal := market.PoolYes + market.PoolNo
 		market.Probability = (market.PoolYes / newTotal) * 100
-		
+
 		if err := tx.Save(&market).Error; err != nil {
 			return err
 		}
@@ -320,7 +506,7 @@ func PlaceBet(c *gin.Context) {
 		var position database.Position
 		// Check if user already has a position on this side
 		result := tx.Where("user_id = ? AND market_id = ? AND is_yes = ?", userID, req.MarketID, req.IsYes).First(&position)
-		
+
 		if result.Error == nil {
 			// Update existing position
 			position.Shares += sharesReceived
@@ -360,7 +546,7 @@ func PlaceBet(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"msg": "Bet placed successfully"})
-}	
+}
 
 type BetDiscussionRequest struct {
 	MarketID uint   `json:"market_id"`
@@ -400,9 +586,9 @@ func DiscussionOnBet(c *gin.Context) {
 	}
 
 	comment := database.Comment{
-		UserID: userID.(uint),
+		UserID:   userID.(uint),
 		MarketID: req.MarketID,
-		Content: req.Comment,
+		Content:  req.Comment,
 	}
 
 	if err := database.DB.Create(&comment).Error; err != nil {

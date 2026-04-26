@@ -70,12 +70,20 @@ export default function LandingPage() {
 
             {/* Auth Buttons */}
             <div className="flex items-center gap-3">
-              <button onClick={() => window.location.href = '/signin'}
-              className="px-5 py-2 text-sm font-semibold hover:text-[#a6a5f2] transition-colors">
+              <button
+                onClick={() => {
+                  window.location.href = "/signin";
+                }}
+                className="px-5 py-2 text-sm font-semibold hover:text-[#a6a5f2] transition-colors"
+              >
                 Log In
               </button>
-              <button onClick={() => window.location.href = '/signup'}
-              className="px-6 py-2.5 bg-[#a6a5f2] hover:bg-[#8f8edb] rounded-full text-sm font-bold text-white transition-colors">
+              <button
+                onClick={() => {
+                  window.location.href = "/signup";
+                }}
+                className="px-6 py-2.5 bg-[#a6a5f2] hover:bg-[#8f8edb] rounded-full text-sm font-bold text-white transition-colors"
+              >
                 Sign Up
               </button>
             </div>
@@ -108,7 +116,12 @@ export default function LandingPage() {
             {/* CTA Buttons */}
             <div className="flex gap-4 flex-wrap">
               {/* Primary Button - Flat Solid */}
-              <button onClick={() => window.location.href = '/dashboard'} className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all">
+              <button
+                onClick={() => {
+                  window.location.href = "/dashboard";
+                }}
+                className="px-10 py-4 bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-xl font-semibold text-base text-white transition-all"
+              >
                 Start Predicting
               </button>
 
@@ -302,43 +315,46 @@ export default function LandingPage() {
                   description:
                     "Cash out winning positions and climb the leaderboard. Top predictors earn bragging rights!",
                 },
-              ].map((step, index) => (
-                <div key={index} className="text-center group">
-                  <div
-                    className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-colors"
-                    style={{
-                      backgroundColor:
-                        index === 0
-                          ? "#a6a5f220"
-                          : index === 1
-                            ? "#ff932e20"
-                            : "#a9f99e20",
-                      border:
-                        index === 0
-                          ? "2px solid #a6a5f240"
-                          : index === 1
-                            ? "2px solid #ff932e40"
-                            : "2px solid #a9f99e40",
-                    }}
-                  >
-                    <step.icon
-                      className="w-10 h-10"
+              ].map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={index} className="text-center group">
+                    <div
+                      className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-colors"
                       style={{
-                        color:
+                        backgroundColor:
                           index === 0
-                            ? "#a6a5f2"
+                            ? "#a6a5f220"
                             : index === 1
-                              ? "#ff932e"
-                              : "#a9f99e",
+                              ? "#ff932e20"
+                              : "#a9f99e20",
+                        border:
+                          index === 0
+                            ? "2px solid #a6a5f240"
+                            : index === 1
+                              ? "2px solid #ff932e40"
+                              : "2px solid #a9f99e40",
                       }}
-                    />
+                    >
+                      <Icon
+                        className="w-10 h-10"
+                        style={{
+                          color:
+                            index === 0
+                              ? "#a6a5f2"
+                              : index === 1
+                                ? "#ff932e"
+                                : "#a9f99e",
+                        }}
+                      />
+                    </div>
+                    <h4 className="text-2xl font-bold mb-3">{step.title}</h4>
+                    <p className="text-gray-400 leading-relaxed">
+                      {step.description}
+                    </p>
                   </div>
-                  <h4 className="text-2xl font-bold mb-3">{step.title}</h4>
-                  <p className="text-gray-400 leading-relaxed">
-                    {step.description}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
