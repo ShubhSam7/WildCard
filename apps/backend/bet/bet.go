@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iiitn-predict/packages/database"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,6 +65,19 @@ type PortfolioActivityResponse struct {
 	MarketID    *uint   `json:"market_id"`
 	MarketTitle string  `json:"market_title"`
 	CreatedAt   string  `json:"created_at"`
+}
+
+type MarketRequestResponse struct {
+	ID          uint    `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Category    string  `json:"category"`
+	EndTime     string  `json:"end_time"`
+	InitialPool float64 `json:"initial_pool"`
+	Status      string  `json:"status"`
+	RequestedBy string  `json:"requested_by"`
+	CreatedAt   string  `json:"created_at"`
+	MarketID    *uint   `json:"market_id"`
 }
 
 func validCategory(category string) bool {
@@ -178,6 +192,7 @@ func GetUserBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"wildCoins": user.WildCoins,
 		"name":      user.Name,
+		"role":      user.Role,
 	})
 }
 
@@ -351,43 +366,213 @@ type CreateBetRequest struct {
 	InitialPool float64               `json:"initial_pool"`
 }
 
-func CreateBet(c *gin.Context) {
-	var req CreateBetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
+func validateMarketInput(req CreateBetRequest) error {
+	if strings.TrimSpace(req.Title) == "" {
+		return fmt.Errorf("title is required")
 	}
+	if strings.TrimSpace(req.Description) == "" {
+		return fmt.Errorf("description is required")
+	}
+	if req.EndTime.IsZero() {
+		return fmt.Errorf("end_time is required")
+	}
+	if time.Now().After(req.EndTime) {
+		return fmt.Errorf("end_time must be in the future")
+	}
+	if !validCategory(strings.ToUpper(string(req.Category))) {
+		return fmt.Errorf("invalid category")
+	}
+	return nil
+}
 
+func createMarketFromRequest(tx *gorm.DB, req CreateBetRequest) (database.Market, error) {
 	seed := req.InitialPool
 	if seed <= 0 {
-		seed = 100.0 // Default 100 Yes / 100 No (50% odds)
+		seed = 100.0
 	}
 
 	betDetails := database.Market{
-		Question:    req.Title,
-		Description: req.Description,
-		Category:    req.Category,
+		Question:    strings.TrimSpace(req.Title),
+		Description: strings.TrimSpace(req.Description),
+		Category:    database.CategoryType(strings.ToUpper(string(req.Category))),
 		EndTime:     req.EndTime,
 		Status:      database.StatusActive,
-
-		// Initialize Pools for AMM Logic
 		PoolYes:     seed,
 		PoolNo:      seed,
-		Probability: 50.0, // Starts at 50%
+		Probability: 50.0,
 	}
 
-	if err := database.DB.Create(&betDetails).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to create bet"})
-		return
+	if err := tx.Create(&betDetails).Error; err != nil {
+		return database.Market{}, err
 	}
 
 	initialHistory := database.MarketHistory{
 		MarketID:    betDetails.ID,
 		Probability: 50.0,
 	}
-	database.DB.Create(&initialHistory)
+	if err := tx.Create(&initialHistory).Error; err != nil {
+		return database.Market{}, err
+	}
+
+	return betDetails, nil
+}
+
+func CreateBet(c *gin.Context) {
+	var req CreateBetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := validateMarketInput(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	betDetails, err := createMarketFromRequest(database.DB, req)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create bet"})
+		return
+	}
 
 	c.JSON(200, gin.H{"msg": "Bet created successfully", "bet_id": betDetails.ID})
+}
+
+func RequestMarket(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req CreateBetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := validateMarketInput(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	seed := req.InitialPool
+	if seed <= 0 {
+		seed = 100.0
+	}
+
+	marketRequest := database.MarketRequest{
+		UserID:      userID.(uint),
+		Title:       strings.TrimSpace(req.Title),
+		Description: strings.TrimSpace(req.Description),
+		Category:    database.CategoryType(strings.ToUpper(string(req.Category))),
+		EndTime:     req.EndTime,
+		InitialPool: seed,
+		Status:      database.MarketRequestPending,
+	}
+	if err := database.DB.Create(&marketRequest).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to request market"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"msg":        "Market request submitted",
+		"request_id": marketRequest.ID,
+	})
+}
+
+func ListMarketRequests(c *gin.Context) {
+	status := strings.ToUpper(strings.TrimSpace(c.Query("status")))
+	if status == "" {
+		status = string(database.MarketRequestPending)
+	}
+
+	var requests []database.MarketRequest
+	query := database.DB.Preload("User").Order("created_at DESC")
+	if status != "ALL" {
+		query = query.Where("status = ?", database.MarketRequestStatus(status))
+	}
+	if err := query.Find(&requests).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch market requests"})
+		return
+	}
+
+	result := make([]MarketRequestResponse, 0, len(requests))
+	for _, request := range requests {
+		result = append(result, MarketRequestResponse{
+			ID:          request.ID,
+			Title:       request.Title,
+			Description: request.Description,
+			Category:    string(request.Category),
+			EndTime:     request.EndTime.Format(time.RFC3339),
+			InitialPool: request.InitialPool,
+			Status:      string(request.Status),
+			RequestedBy: request.User.Name,
+			CreatedAt:   request.CreatedAt.Format(time.RFC3339),
+			MarketID:    request.MarketID,
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func ApproveMarketRequest(c *gin.Context) {
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	requestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || requestID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request id"})
+		return
+	}
+
+	var marketID uint
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		var marketRequest database.MarketRequest
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&marketRequest, uint(requestID)).Error; err != nil {
+			return fmt.Errorf("market request not found")
+		}
+		if marketRequest.Status != database.MarketRequestPending {
+			return fmt.Errorf("market request is not pending")
+		}
+
+		market, err := createMarketFromRequest(tx, CreateBetRequest{
+			Title:       marketRequest.Title,
+			Description: marketRequest.Description,
+			EndTime:     marketRequest.EndTime,
+			Category:    marketRequest.Category,
+			InitialPool: marketRequest.InitialPool,
+		})
+		if err != nil {
+			return err
+		}
+
+		now := time.Now()
+		marketRequest.Status = database.MarketRequestApproved
+		marketRequest.ReviewedBy = ptrUint(adminID.(uint))
+		marketRequest.ReviewedAt = &now
+		marketRequest.MarketID = &market.ID
+		if err := tx.Save(&marketRequest).Error; err != nil {
+			return err
+		}
+
+		marketID = market.ID
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":    "Market request approved",
+		"bet_id": marketID,
+	})
+}
+
+func ptrUint(value uint) *uint {
+	return &value
 }
 
 type PlaceBetRequest struct {

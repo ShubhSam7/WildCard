@@ -7,9 +7,11 @@ import {
   type CategoryId,
 } from "../components/dashboard/CategoryFilterBar";
 import { RightPanel } from "../components/dashboard/RightPanel";
+import { MarketActionDialog } from "../components/dashboard/MarketActionDialog";
 import { Button } from "../components/ui/Button";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatWildCoins } from "../lib/currency";
@@ -34,11 +36,17 @@ interface Market {
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { getToken, isSignedIn } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [marketDialogOpen, setMarketDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const isAdmin = userRole === "ADMIN";
 
   const normalizeCategory = (category: string | null): CategoryId => {
     const normalized = (category ?? "ALL").toUpperCase();
@@ -80,7 +88,35 @@ function DashboardContent() {
     };
 
     fetchMarkets();
-  }, [selectedCategory]);
+  }, [selectedCategory, refreshKey]);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!isSignedIn) {
+        setUserRole(null);
+        return;
+      }
+
+      try {
+        const token = await getToken();
+        const response = await fetch(`${BACKEND}/user/balance`, {
+          headers: {
+            Authorization: `Bearer ${token ?? ""}`,
+          },
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as { role?: string };
+        setUserRole(data.role ?? null);
+      } catch (err) {
+        console.error("Failed to fetch user role:", err);
+      }
+    };
+
+    fetchUserRole();
+  }, [getToken, isSignedIn]);
 
   const handleCategoryChange = (category: CategoryId) => {
     setSelectedCategory(category);
@@ -110,8 +146,12 @@ function DashboardContent() {
               High-stakes forecasting. Real-time odds. Trade on the future.
             </p>
           </div>
-          <Button variant="primary" className="hidden md:flex">
-            Create Market
+          <Button
+            variant="primary"
+            className="hidden md:flex"
+            onClick={() => setMarketDialogOpen(true)}
+          >
+            {isAdmin ? "Create Market" : "Request Market"}
           </Button>
         </div>
 
@@ -132,6 +172,16 @@ function DashboardContent() {
           selectedCategory={selectedCategory}
           onCategoryChange={handleCategoryChange}
         />
+      </div>
+
+      <div className="md:hidden mb-6">
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={() => setMarketDialogOpen(true)}
+        >
+          {isAdmin ? "Create Market" : "Request Market"}
+        </Button>
       </div>
 
       {loading && (
@@ -204,6 +254,13 @@ function DashboardContent() {
           )}
         </motion.div>
       )}
+
+      <MarketActionDialog
+        isOpen={marketDialogOpen}
+        mode={isAdmin ? "create" : "request"}
+        onClose={() => setMarketDialogOpen(false)}
+        onSuccess={() => setRefreshKey((current) => current + 1)}
+      />
     </DashboardLayout>
   );
 }

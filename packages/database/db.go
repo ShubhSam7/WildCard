@@ -48,6 +48,7 @@ func InitDB() {
 		&Position{},
 		&Transaction{},
 		&Comment{},
+		&MarketRequest{},
 	); err != nil {
 		panic(fmt.Sprintf("Failed to migrate database: %v", err))
 	}
@@ -62,7 +63,7 @@ func InitDB() {
 
 	// Manual migration: Clerk authentication changes
 	log.Println("Running Clerk authentication migrations...")
-	
+
 	// 1. Drop password column if it exists (Clerk handles passwords now)
 	if DB.Migrator().HasColumn(&User{}, "password") {
 		log.Println("Dropping 'password' column from users table (Clerk handles auth)...")
@@ -70,7 +71,7 @@ func InitDB() {
 			log.Printf("Warning: Failed to drop 'password' column: %v", err)
 		}
 	}
-	
+
 	// 2. Rename balance to wild_coins if needed
 	if DB.Migrator().HasColumn(&User{}, "balance") {
 		log.Println("Renaming 'balance' column to 'wild_coins'...")
@@ -78,7 +79,7 @@ func InitDB() {
 			log.Printf("Warning: Failed to rename 'balance' column: %v", err)
 		}
 	}
-	
+
 	// 3. Add clerk_id column if it doesn't exist (handle both new and existing tables)
 	if !DB.Migrator().HasColumn(&User{}, "clerk_id") && !DB.Migrator().HasColumn(&User{}, "clerkid") {
 		log.Println("Adding 'clerk_id' column to users table...")
@@ -87,7 +88,7 @@ func InitDB() {
 			log.Printf("Warning: Failed to add 'clerk_id' column: %v", err)
 		}
 	}
-	
+
 	// 4. Rename clerkid to clerk_id if needed (standardize naming)
 	if DB.Migrator().HasColumn(&User{}, "clerkid") {
 		log.Println("Renaming 'clerkid' column to 'clerk_id'...")
@@ -95,7 +96,7 @@ func InitDB() {
 			log.Printf("Warning: Failed to rename 'clerkid' column: %v", err)
 		}
 	}
-	
+
 	// 5. For existing rows with null clerk_id, generate a placeholder value
 	// This allows the migration to proceed - you should update these values properly later
 	var nullClerkIdCount int64
@@ -107,7 +108,7 @@ func InitDB() {
 			log.Printf("Warning: Failed to update null clerk_id values: %v", err)
 		}
 	}
-	
+
 	// 6. Add NOT NULL and UNIQUE constraints if they don't exist
 	if DB.Migrator().HasColumn(&User{}, "clerk_id") {
 		log.Println("Adding constraints to clerk_id column...")
@@ -116,7 +117,7 @@ func InitDB() {
 		// Add unique index if it doesn't exist
 		DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_clerk_id ON users(clerk_id)")
 	}
-	
+
 	// Note: profile_image_url will be added automatically by AutoMigrate above
 	log.Println("Clerk authentication migrations completed!")
 }
@@ -134,6 +135,14 @@ const (
 	StatusActive   MarketStatus = "ACTIVE"
 	StatusLocked   MarketStatus = "LOCKED"
 	StatusResolved MarketStatus = "RESOLVED"
+)
+
+type MarketRequestStatus string
+
+const (
+	MarketRequestPending  MarketRequestStatus = "PENDING"
+	MarketRequestApproved MarketRequestStatus = "APPROVED"
+	MarketRequestRejected MarketRequestStatus = "REJECTED"
 )
 
 type TransactionType string
@@ -187,6 +196,21 @@ type Market struct {
 	Positions     []Position
 	MarketHistory []MarketHistory
 	Comments      []Comment
+}
+
+type MarketRequest struct {
+	gorm.Model
+	UserID      uint                `gorm:"not null;index"`
+	Title       string              `gorm:"not null"`
+	Description string              `gorm:"type:text;not null"`
+	Category    CategoryType        `gorm:"index;not null"`
+	EndTime     time.Time           `gorm:"not null"`
+	InitialPool float64             `gorm:"default:100"`
+	Status      MarketRequestStatus `gorm:"default:'PENDING';index"`
+	ReviewedBy  *uint
+	ReviewedAt  *time.Time
+	MarketID    *uint
+	User        User `gorm:"foreignKey:UserID"`
 }
 
 type MarketHistory struct {

@@ -90,12 +90,15 @@ func main() {
 	{
 		betGroup.POST("/place", bet.PlaceBet)             // place a bet
 		betGroup.POST("/discussion", bet.DiscussionOnBet) // discussion on a bet
+		betGroup.POST("/requests", bet.RequestMarket)     // request a new market
 	}
 
 	betCreate := r.Group("/bet")
 	betCreate.Use(auth.ClerkAdminMiddleware())
 	{
-		betCreate.POST("/create", bet.CreateBet) // create a bet
+		betCreate.POST("/create", bet.CreateBet)                          // create a bet
+		betCreate.GET("/requests", bet.ListMarketRequests)                // list market requests
+		betCreate.POST("/requests/:id/approve", bet.ApproveMarketRequest) // approve a request
 	}
 
 	r.GET("/ping", func(c *gin.Context) {
