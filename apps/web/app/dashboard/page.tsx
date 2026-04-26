@@ -36,7 +36,7 @@ interface Market {
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [markets, setMarkets] = useState<Market[]>([]);
@@ -93,6 +93,10 @@ function DashboardContent() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
+      if (!isLoaded) {
+        return;
+      }
+
       if (!isSignedIn) {
         setUserRole(null);
         setRoleLoading(false);
@@ -102,21 +106,6 @@ function DashboardContent() {
       setRoleLoading(true);
       try {
         const token = await getToken();
-
-        const adminProbe = await fetch(
-          `${BACKEND}/bet/requests?status=PENDING`,
-          {
-            headers: {
-              Authorization: `Bearer ${token ?? ""}`,
-            },
-            cache: "no-store",
-          },
-        );
-        if (adminProbe.ok) {
-          setUserRole("ADMIN");
-          return;
-        }
-
         const balanceResponse = await fetch(`${BACKEND}/user/balance`, {
           headers: {
             Authorization: `Bearer ${token ?? ""}`,
@@ -124,19 +113,21 @@ function DashboardContent() {
           cache: "no-store",
         });
         if (!balanceResponse.ok) {
+          setUserRole(null);
           return;
         }
         const data = (await balanceResponse.json()) as { role?: string };
         setUserRole((data.role ?? null)?.toUpperCase() ?? null);
       } catch (err) {
         console.error("Failed to fetch user role:", err);
+        setUserRole(null);
       } finally {
         setRoleLoading(false);
       }
     };
 
     fetchUserRole();
-  }, [getToken, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn]);
 
   const handleCategoryChange = (category: CategoryId) => {
     setSelectedCategory(category);

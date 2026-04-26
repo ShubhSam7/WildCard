@@ -119,77 +119,87 @@ func convertJWKToPublicKey(jwk ClerkJWK) (*rsa.PublicKey, error) {
 	}, nil
 }
 
+func authenticateClerkRequest(c *gin.Context) (*database.User, bool) {
+	tokenString := c.GetHeader("Authorization")
+	if tokenString == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		c.Abort()
+		return nil, false
+	}
+
+	// Remove "Bearer " prefix if present
+	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+		tokenString = tokenString[7:]
+	}
+
+	// Parse token to get the kid from header
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Verify signing method
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// Get kid from header
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, errors.New("kid not found in token header")
+		}
+
+		// Get public key for this kid
+		return getPublicKey(kid)
+	})
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token: " + err.Error()})
+		c.Abort()
+		return nil, false
+	}
+
+	if !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.Abort()
+		return nil, false
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		c.Abort()
+		return nil, false
+	}
+
+	// Extract Clerk user ID (sub claim)
+	clerkUserID, ok := claims["sub"].(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
+		c.Abort()
+		return nil, false
+	}
+
+	var user database.User
+	if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		c.Abort()
+		return nil, false
+	}
+
+	c.Set("clerk_user_id", clerkUserID)
+	c.Set("user_id", user.ID)
+	c.Set("user_role", user.Role)
+
+	// Optional: Store other useful claims
+	if email, ok := claims["email"].(string); ok {
+		c.Set("user_email", email)
+	}
+
+	return &user, true
+}
+
 // ClerkMiddleware validates Clerk JWT tokens
 func ClerkMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
+		if _, ok := authenticateClerkRequest(c); !ok {
 			return
-		}
-
-		// Remove "Bearer " prefix if present
-		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-			tokenString = tokenString[7:]
-		}
-
-		// Parse token to get the kid from header
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Verify signing method
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-
-			// Get kid from header
-			kid, ok := token.Header["kid"].(string)
-			if !ok {
-				return nil, errors.New("kid not found in token header")
-			}
-
-			// Get public key for this kid
-			return getPublicKey(kid)
-		})
-
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token: " + err.Error()})
-			c.Abort()
-			return
-		}
-
-		if !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			c.Abort()
-			return
-		}
-
-		// Extract Clerk user ID (sub claim)
-		clerkUserID, ok := claims["sub"].(string)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
-			c.Abort()
-			return
-		}
-
-		// Store Clerk user ID in context
-		c.Set("clerk_user_id", clerkUserID)
-
-		// Optional: Store other useful claims
-		if email, ok := claims["email"].(string); ok {
-			c.Set("user_email", email)
-		}
-
-		// Fetch local user by ClerkID and set user_id for backwards compatibility
-		var user database.User
-		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err == nil {
-			c.Set("user_id", user.ID)
 		}
 
 		c.Next()
@@ -199,26 +209,8 @@ func ClerkMiddleware() gin.HandlerFunc {
 // ClerkAdminMiddleware validates Clerk JWT tokens and checks for admin role
 func ClerkAdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// First validate the token using ClerkMiddleware
-		ClerkMiddleware()(c)
-
-		if c.IsAborted() {
-			return
-		}
-
-		// Get claims from the token
-		clerkUserID, exists := c.Get("clerk_user_id")
-		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
-			c.Abort()
-			return
-		}
-
-		// Fetch user from database by Clerk ID and check admin role
-		var user database.User
-		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-			c.Abort()
+		user, ok := authenticateClerkRequest(c)
+		if !ok {
 			return
 		}
 
@@ -228,7 +220,6 @@ func ClerkAdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", user.ID)
 		c.Next()
 	}
 }
