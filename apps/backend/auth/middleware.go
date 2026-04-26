@@ -4,10 +4,55 @@ import (
 	"iiitn-predict/packages/database"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func jwtKeyFunc(token *jwt.Token) (interface{}, error) {
+	// Prevent alg confusion attacks: only accept HMAC.
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, jwt.ErrSignatureInvalid
+	}
+	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if secret == "" {
+		return nil, jwt.ErrTokenUnverifiable
+	}
+	return []byte(secret), nil
+}
+
+func userIDFromClaims(claims jwt.MapClaims) (uint, bool) {
+	raw, ok := claims["user_id"]
+	if !ok {
+		return 0, false
+	}
+
+	switch v := raw.(type) {
+	case float64:
+		if v <= 0 {
+			return 0, false
+		}
+		return uint(v), true
+	case int:
+		if v <= 0 {
+			return 0, false
+		}
+		return uint(v), true
+	case int64:
+		if v <= 0 {
+			return 0, false
+		}
+		return uint(v), true
+	case uint:
+		if v == 0 {
+			return 0, false
+		}
+		return v, true
+	default:
+		return 0, false
+	}
+}
 
 func Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -23,9 +68,7 @@ func Middleware() gin.HandlerFunc {
 			tokenString = tokenString[7:]
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
+		token, err := jwt.Parse(tokenString, jwtKeyFunc)
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
@@ -40,7 +83,12 @@ func Middleware() gin.HandlerFunc {
 			return
 		}
 
-		userID := uint(claims["user_id"].(float64))
+		userID, ok := userIDFromClaims(claims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
 		c.Set("user_id", userID)
 		c.Next()
 	}
@@ -60,9 +108,7 @@ func AdminMiddleware() gin.HandlerFunc {
 			tokenString = tokenString[7:]
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
+		token, err := jwt.Parse(tokenString, jwtKeyFunc)
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
@@ -77,7 +123,12 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		userID := uint(claims["user_id"].(float64))
+		userID, ok := userIDFromClaims(claims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
 		
 		var user database.User
 		if err := database.DB.First(&user, userID).Error; err != nil {
