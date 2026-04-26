@@ -129,6 +129,14 @@ const (
 	RoleTypeStudent RoleType = "STUDENT"
 )
 
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(strings.Trim(email, "\"'")))
+}
+
+func AdminEmail() string {
+	return NormalizeEmail(os.Getenv("ADMIN_EMAIL"))
+}
+
 type MarketStatus string
 
 const (

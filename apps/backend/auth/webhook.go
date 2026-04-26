@@ -102,6 +102,7 @@ func handleUserCreated(userData ClerkUserData) error {
 	if email == "" && len(userData.EmailAddresses) > 0 {
 		email = userData.EmailAddresses[0].EmailAddress
 	}
+	email = database.NormalizeEmail(email)
 
 	// Construct full name from first and last name
 	name := userData.FirstName
@@ -122,13 +123,17 @@ func handleUserCreated(userData ClerkUserData) error {
 	var existingByClerkID database.User
 	if err := database.DB.Where("clerk_id = ?", userData.ID).First(&existingByClerkID).Error; err == nil {
 		// Already linked — nothing to do
+		adminEmail := database.AdminEmail()
+		if adminEmail != "" && database.NormalizeEmail(existingByClerkID.Email) == adminEmail && existingByClerkID.Role != database.RoleTypeAdmin {
+			return database.DB.Model(&existingByClerkID).Update("role", database.RoleTypeAdmin).Error
+		}
 		return nil
 	}
 
 	// Check if a record exists for this email (e.g. the seeded admin placeholder)
-	adminEmail := os.Getenv("ADMIN_EMAIL")
+	adminEmail := database.AdminEmail()
 	var existingByEmail database.User
-	if err := database.DB.Unscoped().Where("email = ?", email).First(&existingByEmail).Error; err == nil {
+	if err := database.DB.Unscoped().Where("LOWER(email) = ?", email).First(&existingByEmail).Error; err == nil {
 		// Record exists for this email — link real Clerk ID and ensure correct role
 		role := database.RoleTypeStudent
 		if adminEmail != "" && email == adminEmail {

@@ -175,12 +175,49 @@ func authenticateClerkRequest(c *gin.Context) (*database.User, bool) {
 		c.Abort()
 		return nil, false
 	}
+	email := ""
+	if claimEmail, ok := claims["email"].(string); ok {
+		email = database.NormalizeEmail(claimEmail)
+	}
+	adminEmail := database.AdminEmail()
 
 	var user database.User
 	if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-		c.Abort()
-		return nil, false
+		if email == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return nil, false
+		}
+
+		if err := database.DB.Unscoped().Where("LOWER(email) = ?", email).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return nil, false
+		}
+
+		updates := map[string]interface{}{"clerk_id": clerkUserID}
+		if adminEmail != "" && email == adminEmail {
+			updates["role"] = database.RoleTypeAdmin
+		}
+		if err := database.DB.Unscoped().Model(&user).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to link user"})
+			c.Abort()
+			return nil, false
+		}
+		if err := database.DB.Where("clerk_id = ?", clerkUserID).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return nil, false
+		}
+	}
+
+	if adminEmail != "" && database.NormalizeEmail(user.Email) == adminEmail && user.Role != database.RoleTypeAdmin {
+		if err := database.DB.Model(&user).Update("role", database.RoleTypeAdmin).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role"})
+			c.Abort()
+			return nil, false
+		}
+		user.Role = database.RoleTypeAdmin
 	}
 
 	c.Set("clerk_user_id", clerkUserID)
@@ -188,7 +225,7 @@ func authenticateClerkRequest(c *gin.Context) (*database.User, bool) {
 	c.Set("user_role", user.Role)
 
 	// Optional: Store other useful claims
-	if email, ok := claims["email"].(string); ok {
+	if email != "" {
 		c.Set("user_email", email)
 	}
 
