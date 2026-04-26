@@ -43,6 +43,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [marketDialogOpen, setMarketDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -94,24 +95,43 @@ function DashboardContent() {
     const fetchUserRole = async () => {
       if (!isSignedIn) {
         setUserRole(null);
+        setRoleLoading(false);
         return;
       }
 
+      setRoleLoading(true);
       try {
         const token = await getToken();
-        const response = await fetch(`${BACKEND}/user/balance`, {
+
+        const adminProbe = await fetch(
+          `${BACKEND}/bet/requests?status=PENDING`,
+          {
+            headers: {
+              Authorization: `Bearer ${token ?? ""}`,
+            },
+            cache: "no-store",
+          },
+        );
+        if (adminProbe.ok) {
+          setUserRole("ADMIN");
+          return;
+        }
+
+        const balanceResponse = await fetch(`${BACKEND}/user/balance`, {
           headers: {
             Authorization: `Bearer ${token ?? ""}`,
           },
           cache: "no-store",
         });
-        if (!response.ok) {
+        if (!balanceResponse.ok) {
           return;
         }
-        const data = (await response.json()) as { role?: string };
-        setUserRole(data.role ?? null);
+        const data = (await balanceResponse.json()) as { role?: string };
+        setUserRole((data.role ?? null)?.toUpperCase() ?? null);
       } catch (err) {
         console.error("Failed to fetch user role:", err);
+      } finally {
+        setRoleLoading(false);
       }
     };
 
@@ -150,8 +170,13 @@ function DashboardContent() {
             variant="primary"
             className="hidden md:flex"
             onClick={() => setMarketDialogOpen(true)}
+            disabled={roleLoading}
           >
-            {isAdmin ? "Create Market" : "Request Market"}
+            {roleLoading
+              ? "Checking Access..."
+              : isAdmin
+                ? "Create Market"
+                : "Request Market"}
           </Button>
         </div>
 
@@ -179,8 +204,13 @@ function DashboardContent() {
           variant="primary"
           fullWidth
           onClick={() => setMarketDialogOpen(true)}
+          disabled={roleLoading}
         >
-          {isAdmin ? "Create Market" : "Request Market"}
+          {roleLoading
+            ? "Checking Access..."
+            : isAdmin
+              ? "Create Market"
+              : "Request Market"}
         </Button>
       </div>
 
