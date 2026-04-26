@@ -56,17 +56,29 @@ func main() {
 	// Clerk webhook endpoint (no auth middleware - uses svix signature verification)
 	r.POST("/auth/webhooks/clerk", auth.ClerkWebhook)
 
-	betGroup := r.Group("/bet")
-	betGroup.Use(auth.ClerkMiddleware()) // Clerk auth middleware to protect the routes
+	// Public endpoints
+	r.GET("/bet/markets", bet.GetMarkets)
+	r.GET("/leaderboard", bet.GetLeaderboard)
+
+	// Authenticated user endpoints
+	userGroup := r.Group("/user")
+	userGroup.Use(auth.ClerkMiddleware())
 	{
-		betGroup.POST("/place", bet.PlaceBet)             // place a bet
-		betGroup.POST("/discussion", bet.DiscussionOnBet) // discussion on a bet
+		userGroup.GET("/balance", bet.GetUserBalance)
+		userGroup.GET("/stats", bet.GetUserStats)
+	}
+
+	betGroup := r.Group("/bet")
+	betGroup.Use(auth.ClerkMiddleware())
+	{
+		betGroup.POST("/place", bet.PlaceBet)
+		betGroup.POST("/discussion", bet.DiscussionOnBet)
 	}
 
 	betCreate := r.Group("/bet")
 	betCreate.Use(auth.ClerkAdminMiddleware())
 	{
-		betCreate.POST("/create", bet.CreateBet) // create a bet
+		betCreate.POST("/create", bet.CreateBet)
 	}
 
 	r.GET("/ping", func(c *gin.Context) {

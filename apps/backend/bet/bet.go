@@ -3,11 +3,163 @@ package bet
 import (
 	"fmt"
 	"iiitn-predict/packages/database"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// ─── Market Response DTOs ──────────────────────────────────────────────────
+
+type MarketResponse struct {
+	ID          uint    `json:"id"`
+	Question    string  `json:"question"`
+	Category    string  `json:"category"`
+	YesPrice    float64 `json:"yes_price"`
+	NoPrice     float64 `json:"no_price"`
+	PoolYes     float64 `json:"pool_yes"`
+	PoolNo      float64 `json:"pool_no"`
+	Volume      float64 `json:"volume"`
+	Probability float64 `json:"probability"`
+	EndTime     string  `json:"end_time"`
+	Status      string  `json:"status"`
+	Trending    bool    `json:"trending"`
+}
+
+// ─── GET /bet/markets?category=ALL ────────────────────────────────────────
+
+func GetMarkets(c *gin.Context) {
+	category := c.Query("category")
+
+	var markets []database.Market
+	query := database.DB.Where("status = ?", database.StatusActive)
+	if category != "" && category != "ALL" {
+		query = query.Where("category = ?", database.CategoryType(category))
+	}
+	if err := query.Order("created_at DESC").Find(&markets).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch markets"})
+		return
+	}
+
+	// Find IDs of top 3 trending markets by total pool
+	trendingIDs := map[uint]bool{}
+	type poolResult struct {
+		ID        uint
+		TotalPool float64
+	}
+	var poolResults []poolResult
+	database.DB.Model(&database.Market{}).
+		Where("status = ?", database.StatusActive).
+		Select("id, (pool_yes + pool_no) as total_pool").
+		Order("total_pool DESC").
+		Limit(3).
+		Scan(&poolResults)
+	for _, r := range poolResults {
+		trendingIDs[r.ID] = true
+	}
+
+	var result []MarketResponse
+	for _, m := range markets {
+		totalPool := m.PoolYes + m.PoolNo
+		yesPrice := 50.0
+		noPrice := 50.0
+		if totalPool > 0 {
+			yesPrice = (m.PoolYes / totalPool) * 100
+			noPrice = (m.PoolNo / totalPool) * 100
+		}
+		result = append(result, MarketResponse{
+			ID:          m.ID,
+			Question:    m.Question,
+			Category:    string(m.Category),
+			YesPrice:    yesPrice,
+			NoPrice:     noPrice,
+			PoolYes:     m.PoolYes,
+			PoolNo:      m.PoolNo,
+			Volume:      totalPool,
+			Probability: m.Probability,
+			EndTime:     m.EndTime.Format("Jan 02, 2006"),
+			Status:      string(m.Status),
+			Trending:    trendingIDs[m.ID],
+		})
+	}
+
+	if result == nil {
+		result = []MarketResponse{}
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// ─── GET /leaderboard ─────────────────────────────────────────────────────
+
+type LeaderboardEntry struct {
+	Rank            int     `json:"rank"`
+	Name            string  `json:"name"`
+	ProfileImageUrl string  `json:"profile_image_url"`
+	WildCoins       float64 `json:"wild_coins"`
+}
+
+func GetLeaderboard(c *gin.Context) {
+	var users []database.User
+	if err := database.DB.
+		Order("wild_coins DESC").
+		Limit(50).
+		Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch leaderboard"})
+		return
+	}
+
+	entries := make([]LeaderboardEntry, 0, len(users))
+	for i, u := range users {
+		entries = append(entries, LeaderboardEntry{
+			Rank:            i + 1,
+			Name:            u.Name,
+			ProfileImageUrl: u.ProfileImageUrl,
+			WildCoins:       u.WildCoins,
+		})
+	}
+	c.JSON(http.StatusOK, entries)
+}
+
+// ─── GET /user/balance  (requires ClerkMiddleware) ─────────────────────────
+
+func GetUserBalance(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var user database.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"wildCoins": user.WildCoins,
+		"name":      user.Name,
+	})
+}
+
+// ─── GET /user/stats  (requires ClerkMiddleware) ──────────────────────────
+
+func GetUserStats(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var user database.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	var activePositions int64
+	database.DB.Model(&database.Position{}).Where("user_id = ?", userID).Count(&activePositions)
+	c.JSON(http.StatusOK, gin.H{
+		"wildCoins":       user.WildCoins,
+		"activePositions": activePositions,
+	})
+}
 
 type CreateBetRequest struct {
 	Title       string `json:"title"`

@@ -1,29 +1,31 @@
 "use client";
 
-import React from "react";
-import { Navbar } from "./Navbar";
+import React, { useState } from "react";
+import { AppHeader } from "./AppHeader";
 import { Sidebar } from "./Sidebar";
 
-/**
- * DashboardLayout - Neon Noir Pulse
- * 
- * Features:
- * - Asymmetric 7-5 grid (main content vs sidebar)
- * - Fixed navbar + sidebar
- * - Proper spacing from edges
- */
-
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-void">
-      <Navbar />
-      <Sidebar />
-      
-      {/* Main Content Area */}
-      <main className="lg:ml-64 pt-24 px-6 pb-12">
-        <div className="max-w-[1400px] mx-auto">
-          {children}
-        </div>
+    <div className="min-h-screen bg-[#0a1520]">
+      <AppHeader
+        onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
+      />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Main Content shifts with sidebar */}
+      <main
+        className="pt-2 px-6 pb-12 transition-all duration-300"
+        style={{ marginLeft: sidebarCollapsed ? "5rem" : "16rem" }}
+      >
+        <div className="max-w-[1400px] mx-auto pt-6">{children}</div>
       </main>
     </div>
   );
