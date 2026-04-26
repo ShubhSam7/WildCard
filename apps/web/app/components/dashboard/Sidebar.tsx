@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Trophy,
   Briefcase,
-  User,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -50,7 +49,6 @@ const navItems = [
     label: "Portfolio",
     href: "/dashboard/portfolio",
   },
-  { id: "profile", icon: User, label: "Profile", href: "/dashboard/profile" },
 ];
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";

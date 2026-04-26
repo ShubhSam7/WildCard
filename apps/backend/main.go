@@ -42,26 +42,29 @@ func main() {
 	// CORS configuration for frontend
 	corsConfig := cors.DefaultConfig()
 	frontendURL := os.Getenv("FRONTEND_URL")
+	defaultOrigins := []string{
+		"https://wild-card-web.vercel.app",
+		"http://localhost:3000",
+		"http://localhost:3001",
+	}
+	allowOrigins := make([]string, 0, len(defaultOrigins)+4)
+	seenOrigins := map[string]bool{}
+	for _, origin := range defaultOrigins {
+		allowOrigins = append(allowOrigins, origin)
+		seenOrigins[origin] = true
+	}
 	if frontendURL != "" {
-		// Production: use explicit comma-separated frontend URLs.
+		// Production: allow explicit comma-separated frontend URLs in addition to defaults.
 		origins := strings.Split(frontendURL, ",")
-		allowOrigins := make([]string, 0, len(origins))
 		for _, origin := range origins {
 			trimmed := strings.TrimSpace(origin)
-			if trimmed != "" {
+			if trimmed != "" && !seenOrigins[trimmed] {
 				allowOrigins = append(allowOrigins, trimmed)
+				seenOrigins[trimmed] = true
 			}
 		}
-		if len(allowOrigins) > 0 {
-			corsConfig.AllowOrigins = allowOrigins
-		} else {
-			// Safety fallback when FRONTEND_URL exists but is empty/malformed.
-			corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
-		}
-	} else {
-		// Development: allow localhost
-		corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
 	}
+	corsConfig.AllowOrigins = allowOrigins
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	r.Use(cors.New(corsConfig))
