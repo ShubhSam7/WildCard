@@ -15,9 +15,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env for local development (silently ignored in production)
+	_ = godotenv.Load("../../.env")
+
 	// Set Gin to release mode for production (can be overridden by GIN_MODE env var)
 	if os.Getenv("GIN_MODE") == "" && os.Getenv("PORT") != "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -32,6 +36,7 @@ func main() {
 	}
 
 	database.InitDB()
+	database.SeedAdmin()
 	r := gin.Default()
 
 	// CORS configuration for frontend

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AppHeader } from "./AppHeader";
 import { Sidebar } from "./Sidebar";
 
@@ -22,6 +22,11 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, rightPanel }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-void">
@@ -62,8 +67,8 @@ export function DashboardLayout({ children, rightPanel }: DashboardLayoutProps) 
         )}
       </div>
 
-      {/* Mobile Overlay */}
-      {mobileMenuOpen && (
+      {/* Mobile Overlay - only render on client to avoid hydration mismatch */}
+      {mounted && mobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}

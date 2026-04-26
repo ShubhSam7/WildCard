@@ -118,6 +118,43 @@ func handleUserCreated(userData ClerkUserData) error {
 		name = email
 	}
 
+	// Check if user already exists by clerk_id (idempotency)
+	var existingByClerkID database.User
+	if err := database.DB.Where("clerk_id = ?", userData.ID).First(&existingByClerkID).Error; err == nil {
+		// Already linked — nothing to do
+		return nil
+	}
+
+	// Check if a record exists for this email (e.g. the seeded admin placeholder)
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	var existingByEmail database.User
+	if err := database.DB.Unscoped().Where("email = ?", email).First(&existingByEmail).Error; err == nil {
+		// Record exists for this email — link real Clerk ID and ensure correct role
+		role := database.RoleTypeStudent
+		if adminEmail != "" && email == adminEmail {
+			role = database.RoleTypeAdmin
+		}
+
+		updates := map[string]interface{}{
+			"clerk_id":          userData.ID,
+			"name":              name,
+			"profile_image_url": userData.ProfileImageURL,
+			"role":              role,
+		}
+		if err := database.DB.Unscoped().Model(&existingByEmail).Updates(updates).Error; err != nil {
+			return fmt.Errorf("failed to link clerk_id to existing user: %w", err)
+		}
+
+		fmt.Printf("Linked Clerk ID %s to existing user %s (role: %s)\n", userData.ID, email, role)
+		return nil
+	}
+
+	// Determine role for brand-new users
+	role := database.RoleTypeStudent
+	if adminEmail != "" && email == adminEmail {
+		role = database.RoleTypeAdmin
+	}
+
 	// Create user in database
 	user := database.User{
 		ClerkID:         userData.ID,
@@ -125,22 +162,14 @@ func handleUserCreated(userData ClerkUserData) error {
 		Email:           email,
 		ProfileImageUrl: userData.ProfileImageURL,
 		WildCoins:       10000.0, // Default starting coins
-		Role:            database.RoleTypeStudent,
+		Role:            role,
 	}
 
-	// Check if user already exists (idempotency check)
-	var existingUser database.User
-	if err := database.DB.Where("clerk_id = ?", userData.ID).First(&existingUser).Error; err == nil {
-		// User already exists, this is a duplicate webhook
-		return nil
-	}
-
-	// Create the user
 	if err := database.DB.Create(&user).Error; err != nil {
 		return fmt.Errorf("failed to insert user into database: %w", err)
 	}
 
-	// Optionally: Create a signup bonus transaction
+	// Create a signup bonus transaction
 	transaction := database.Transaction{
 		UserID:      user.ID,
 		Amount:      10000.0,
@@ -155,3 +184,4 @@ func handleUserCreated(userData ClerkUserData) error {
 
 	return nil
 }
+
