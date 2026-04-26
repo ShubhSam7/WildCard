@@ -53,7 +53,7 @@ export function MarketCard({
       <Card
         hoverable
         className={cn(
-          "h-full min-h-[220px] aspect-[4/3] transition-all duration-200",
+          "h-full min-h-[220px] flex flex-col transition-all duration-200",
           "hover:ring-2 hover:ring-primary/50 hover:-translate-y-1",
           className,
         )}
@@ -79,7 +79,7 @@ export function MarketCard({
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="pb-2 px-3">
+        <CardContent className="pb-2 px-3 flex-grow">
           {/* Prominent YES/NO Distribution Bar */}
           <div className="mb-2">
             <div className="flex items-center justify-between mb-1">
@@ -116,7 +116,7 @@ export function MarketCard({
           </div>
         </CardContent>
 
-        <CardFooter className="pt-2 pb-3 px-3 border-t border-surface-variant">
+        <CardFooter className="pt-2 pb-3 px-3 border-t border-surface-variant mt-auto">
           <div className="flex items-center justify-between w-full gap-2">
             <span className="text-xs text-on-variant">{endDate}</span>
             <span className="text-xs text-primary font-medium group-hover:underline">

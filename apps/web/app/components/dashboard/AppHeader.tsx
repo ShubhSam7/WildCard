@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { UserButton, useAuth } from "@clerk/nextjs";
-import { Search, Bell, Menu, Coins } from "lucide-react";
+import { Search, Bell, Menu, Coins, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { cn } from "../../lib/utils";
 import Link from "next/link";
 import { formatWildCoins } from "../../lib/currency";
@@ -10,12 +10,14 @@ import { NotificationDropdown } from "./NotificationDropdown";
 
 interface AppHeaderProps {
   onMobileMenuToggle?: () => void;
+  onRightPanelToggle?: () => void;
+  rightPanelOpen?: boolean;
   className?: string;
 }
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
 
-export function AppHeader({ onMobileMenuToggle, className }: AppHeaderProps) {
+export function AppHeader({ onMobileMenuToggle, onRightPanelToggle, rightPanelOpen, className }: AppHeaderProps) {
   const { getToken } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
@@ -167,6 +169,27 @@ export function AppHeader({ onMobileMenuToggle, className }: AppHeaderProps) {
               onClose={() => setNotificationsOpen(false)}
             />
           </div>
+
+          {/* Right Panel Toggle */}
+          {onRightPanelToggle && (
+            <button
+              onClick={onRightPanelToggle}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                rightPanelOpen
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-surface-high text-on-variant hover:text-primary"
+              )}
+              aria-label={rightPanelOpen ? "Close insights panel" : "Open insights panel"}
+              title={rightPanelOpen ? "Close insights" : "Open insights"}
+            >
+              {rightPanelOpen ? (
+                <PanelRightClose className="w-5 h-5" />
+              ) : (
+                <PanelRightOpen className="w-5 h-5" />
+              )}
+            </button>
+          )}
 
           {/* User Button */}
           <UserButton
