@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"iiitn-predict/packages/database"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -211,7 +212,11 @@ func authenticateClerkRequest(c *gin.Context) (*database.User, bool) {
 		}
 	}
 
+	log.Printf("[ClerkAuth] User found: id=%d, email=%q, role=%q, adminEmail=%q, normalized=%q",
+		user.ID, user.Email, user.Role, adminEmail, database.NormalizeEmail(user.Email))
+
 	if adminEmail != "" && database.NormalizeEmail(user.Email) == adminEmail && user.Role != database.RoleTypeAdmin {
+		log.Printf("[ClerkAuth] Promoting user %d to ADMIN (email match)", user.ID)
 		if err := database.DB.Model(&user).Update("role", database.RoleTypeAdmin).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role"})
 			c.Abort()

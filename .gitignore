@@ -39,6 +39,3 @@ yarn-error.log*
 # Go binaries
 apps/backend/tmp/
 *.exe
-
-# Seed files with sensitive data
-packages/database/seed.go
