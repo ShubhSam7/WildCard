@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "../../lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, TrendingUp, Trophy, Briefcase, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@clerk/nextjs";
+import { formatWildCoins } from "../../lib/currency";
 
 /**
  * Sidebar - Collapsible Navigation
@@ -33,6 +35,8 @@ const navItems = [
   { id: "profile", icon: User, label: "Profile", href: "/dashboard/profile" },
 ];
 
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
+
 export function Sidebar({ 
   collapsed = false, 
   onToggleCollapse,
@@ -41,6 +45,33 @@ export function Sidebar({
   className 
 }: SidebarProps) {
   const pathname = usePathname();
+  const { getToken } = useAuth();
+  const [wildCoins, setWildCoins] = useState<number | null>(null);
+  const [activePositions, setActivePositions] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch(`${BACKEND}/user/stats`, {
+          headers: {
+            Authorization: `Bearer ${token ?? ""}`,
+          },
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as { wildCoins: number; activePositions: number };
+        setWildCoins(data.wildCoins);
+        setActivePositions(data.activePositions);
+      } catch (error) {
+        console.error("Failed to fetch sidebar stats:", error);
+      }
+    };
+
+    fetchStats();
+  }, [getToken]);
 
   const sidebarContent = (
     <>
@@ -104,9 +135,12 @@ export function Sidebar({
             <div className="p-4 bg-surface-high rounded-lg">
               <h3 className="label-sm text-on-variant mb-3">QUICK STATS</h3>
               <div className="space-y-2">
-                <StatRow label="Active Positions" value="8" />
-                <StatRow label="24h Volume" value="$12.4K" />
-                <StatRow label="Win Rate" value="67%" accent="secondary" />
+                <StatRow label="Active Positions" value={activePositions !== null ? String(activePositions) : "—"} />
+                <StatRow
+                  label="Balance"
+                  value={wildCoins !== null ? formatWildCoins(wildCoins) : "—"}
+                  accent="secondary"
+                />
               </div>
             </div>
           </motion.div>

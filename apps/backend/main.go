@@ -43,8 +43,21 @@ func main() {
 	corsConfig := cors.DefaultConfig()
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL != "" {
-		// Production: use specific frontend URL
-		corsConfig.AllowOrigins = strings.Split(frontendURL, ",")
+		// Production: use explicit comma-separated frontend URLs.
+		origins := strings.Split(frontendURL, ",")
+		allowOrigins := make([]string, 0, len(origins))
+		for _, origin := range origins {
+			trimmed := strings.TrimSpace(origin)
+			if trimmed != "" {
+				allowOrigins = append(allowOrigins, trimmed)
+			}
+		}
+		if len(allowOrigins) > 0 {
+			corsConfig.AllowOrigins = allowOrigins
+		} else {
+			// Safety fallback when FRONTEND_URL exists but is empty/malformed.
+			corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
+		}
 	} else {
 		// Development: allow localhost
 		corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
@@ -55,6 +68,19 @@ func main() {
 
 	// Clerk webhook endpoint (no auth middleware - uses svix signature verification)
 	r.POST("/auth/webhooks/clerk", auth.ClerkWebhook)
+
+	// Public endpoints
+	r.GET("/bet/markets", bet.GetMarkets)
+	r.GET("/leaderboard", bet.GetLeaderboard)
+
+	// Authenticated user endpoints
+	userGroup := r.Group("/user")
+	userGroup.Use(auth.ClerkMiddleware())
+	{
+		userGroup.GET("/balance", bet.GetUserBalance)
+		userGroup.GET("/stats", bet.GetUserStats)
+		userGroup.GET("/portfolio", bet.GetUserPortfolio)
+	}
 
 	betGroup := r.Group("/bet")
 	betGroup.Use(auth.ClerkMiddleware()) // Clerk auth middleware to protect the routes

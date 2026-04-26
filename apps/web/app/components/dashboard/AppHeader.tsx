@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import { Search, Bell, Menu, Coins } from "lucide-react";
 import { cn } from "../../lib/utils";
 import Link from "next/link";
@@ -13,7 +13,10 @@ interface AppHeaderProps {
   className?: string;
 }
 
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
+
 export function AppHeader({ onMobileMenuToggle, className }: AppHeaderProps) {
+  const { getToken } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
@@ -24,7 +27,13 @@ export function AppHeader({ onMobileMenuToggle, className }: AppHeaderProps) {
   useEffect(() => {
     const fetchBalance = async () => {
       try {
-        const response = await fetch('/api/user/balance');
+        const token = await getToken();
+        const response = await fetch(`${BACKEND}/user/balance`, {
+          headers: {
+            Authorization: `Bearer ${token ?? ""}`,
+          },
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           setBalance(data.wildCoins);
@@ -37,7 +46,7 @@ export function AppHeader({ onMobileMenuToggle, className }: AppHeaderProps) {
     };
 
     fetchBalance();
-  }, []);
+  }, [getToken]);
 
   // Keyboard shortcut for search (⌘K or Ctrl+K)
   useEffect(() => {

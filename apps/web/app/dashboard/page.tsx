@@ -11,80 +11,31 @@ import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatWildCoins } from "../lib/currency";
 
-const MOCK_MARKETS = [
-  {
-    id: 1,
-    question: "Will Bitcoin hit $100,000 before end of 2025?",
-    category: "Crypto",
-    yesPrice: 67,
-    noPrice: 33,
-    volume24h: "24500",
-    liquidity: "120000",
-    trending: true,
-    endDate: "Dec 31, 2025",
-  },
-  {
-    id: 2,
-    question: "Will OpenAI release GPT-5 in Q2 2025?",
-    category: "Tech",
-    yesPrice: 42,
-    noPrice: 58,
-    volume24h: "18200",
-    liquidity: "95000",
-    trending: true,
-    endDate: "Jun 30, 2025",
-  },
-  {
-    id: 3,
-    question: "Will Trump win the 2028 US Presidential Election?",
-    category: "Politics",
-    yesPrice: 55,
-    noPrice: 45,
-    volume24h: "32100",
-    liquidity: "180000",
-    trending: false,
-    endDate: "Nov 5, 2028",
-  },
-  {
-    id: 4,
-    question: "Will Tesla stock reach $500 by end of 2025?",
-    category: "Stocks",
-    yesPrice: 38,
-    noPrice: 62,
-    volume24h: "15800",
-    liquidity: "72000",
-    trending: false,
-    endDate: "Dec 31, 2025",
-  },
-  {
-    id: 5,
-    question: "Will inflation drop below 2% in 2025?",
-    category: "Economics",
-    yesPrice: 28,
-    noPrice: 72,
-    volume24h: "9400",
-    liquidity: "45000",
-    trending: false,
-    endDate: "Dec 31, 2025",
-  },
-  {
-    id: 6,
-    question: "Will SpaceX land humans on Mars by 2030?",
-    category: "Space",
-    yesPrice: 22,
-    noPrice: 78,
-    volume24h: "11200",
-    liquidity: "58000",
-    trending: false,
-    endDate: "Dec 31, 2030",
-  },
-];
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
+
+interface Market {
+  id: number;
+  question: string;
+  category: string;
+  yes_price: number;
+  no_price: number;
+  pool_yes: number;
+  pool_no: number;
+  volume: number;
+  probability: number;
+  end_time: string;
+  status: string;
+  trending: boolean;
+}
 
 function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const normalizeCategory = (category: string | null): CategoryId => {
     const normalized = (category ?? "ALL").toUpperCase();
@@ -96,14 +47,39 @@ function DashboardContent() {
     return "ALL";
   };
 
-  // Reset category filter when navigating to dashboard
   useEffect(() => {
     setSelectedCategory(normalizeCategory(searchParams.get("category")));
   }, [searchParams]);
 
+  useEffect(() => {
+    const fetchMarkets = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const url =
+          selectedCategory === "ALL"
+            ? `${BACKEND}/bet/markets`
+            : `${BACKEND}/bet/markets?category=${selectedCategory}`;
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body?.error || "Failed to fetch markets");
+        }
+        const data = (await response.json()) as Market[];
+        setMarkets(data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to fetch markets";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMarkets();
+  }, [selectedCategory]);
+
   const handleCategoryChange = (category: CategoryId) => {
     setSelectedCategory(category);
-    // Update URL to reflect filter state
     if (category === "ALL") {
       router.push("/dashboard");
     } else {
@@ -111,24 +87,19 @@ function DashboardContent() {
     }
   };
 
-  // Filter markets based on category and search
-  const filteredMarkets = (selectedCategory === "ALL" ? MOCK_MARKETS : MOCK_MARKETS.filter((market) =>
-    market.category.toUpperCase() === selectedCategory
-  )).filter((market) => {
-    const matchesSearch = searchQuery === "" || 
-      market.question.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+  const filteredMarkets = markets.filter((market) => {
+    if (searchQuery.trim() === "") {
+      return true;
+    }
+    return market.question.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   return (
     <DashboardLayout rightPanel={<RightPanel />}>
-      {/* Header Section */}
       <div className="mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-grotesk font-bold text-on-surface mb-2">
-              Markets
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-grotesk font-bold text-on-surface mb-2">Markets</h1>
             <p className="text-sm md:text-base text-on-variant">
               High-stakes forecasting. Real-time odds. Trade on the future.
             </p>
@@ -138,7 +109,6 @@ function DashboardContent() {
           </Button>
         </div>
 
-        {/* Search Bar - Mobile */}
         <div className="md:hidden mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-variant" />
@@ -152,76 +122,89 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Category Filter Bar */}
-        <CategoryFilterBar
-          selectedCategory={selectedCategory}
-          onCategoryChange={handleCategoryChange}
-        />
+        <CategoryFilterBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
       </div>
 
-      {/* Markets Grid - Responsive Grid Layout */}
-      <motion.div 
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0 },
-          visible: {
-            opacity: 1,
-            transition: {
-              staggerChildren: 0.05
-            }
-          }
-        }}
-      >
-        {filteredMarkets.length > 0 ? (
-          filteredMarkets.map((market) => (
-            <motion.div
-              key={market.id}
-              variants={{
-                hidden: { opacity: 0, y: 20 },
-                visible: { 
-                  opacity: 1, 
-                  y: 0,
-                  transition: {
-                    duration: 0.3,
-                    ease: "easeOut"
-                  }
-                }
-              }}
-            >
-              <MarketCard
-                id={market.id}
-                question={market.question}
-                category={market.category}
-                yesPrice={market.yesPrice}
-                noPrice={market.noPrice}
-                volume24h={formatWildCoins(parseInt(market.volume24h))}
-                liquidity={formatWildCoins(parseInt(market.liquidity))}
-                trending={market.trending}
-                endDate={market.endDate}
-              />
-            </motion.div>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-12">
-            <p className="text-on-variant">No markets found matching your filters.</p>
-          </div>
-        )}
-      </motion.div>
+      {loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div key={item} className="h-64 rounded-2xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="col-span-full text-center py-12">
+          <p className="text-on-variant">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.05,
+              },
+            },
+          }}
+        >
+          {filteredMarkets.length > 0 ? (
+            filteredMarkets.map((market) => (
+              <motion.div
+                key={market.id}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    transition: {
+                      duration: 0.3,
+                      ease: "easeOut",
+                    },
+                  },
+                }}
+              >
+                <MarketCard
+                  id={market.id}
+                  question={market.question}
+                  category={market.category}
+                  yesPrice={Math.round(market.yes_price)}
+                  noPrice={Math.round(market.no_price)}
+                  volume24h={formatWildCoins(market.volume)}
+                  liquidity={formatWildCoins(market.pool_yes + market.pool_no)}
+                  trending={market.trending}
+                  endDate={market.end_time}
+                />
+              </motion.div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <p className="text-on-variant">No markets found matching your filters.</p>
+            </div>
+          )}
+        </motion.div>
+      )}
     </DashboardLayout>
   );
 }
 
 function DashboardPage() {
   return (
-    <Suspense fallback={
-      <DashboardLayout rightPanel={<RightPanel />}>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="text-on-variant">Loading...</div>
-        </div>
-      </DashboardLayout>
-    }>
+    <Suspense
+      fallback={
+        <DashboardLayout rightPanel={<RightPanel />}>
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="text-on-variant">Loading...</div>
+          </div>
+        </DashboardLayout>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );
