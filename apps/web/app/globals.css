@@ -19,6 +19,7 @@
     font-family: var(--font-manrope), sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -139,6 +140,13 @@
     font-size: 1.25rem;
     font-weight: 600;
     line-height: 1.3;
+  }
+
+  .title-sm {
+    font-family: var(--font-space-grotesk), sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
   }
 
   .body-lg {
@@ -369,5 +377,15 @@ nav .glass {
 /* Disable transitions on page load */
 .preload * {
   transition: none !important;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardLayout } from "../../components/dashboard/DashboardLayout";
+import { RightPanel } from "../../components/dashboard/RightPanel";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { cn } from "../../lib/utils";
@@ -82,7 +83,7 @@ const MOCK_LEADERBOARD = [
 
 function LeaderboardPage() {
   return (
-    <DashboardLayout>
+    <DashboardLayout rightPanel={<RightPanel />}>
       {/* Hero Header */}
       <div className="mb-8">
         <h1 className="display-lg text-on-surface mb-2">Leaderboard</h1>

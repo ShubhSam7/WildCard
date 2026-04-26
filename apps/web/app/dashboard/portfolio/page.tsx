@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardLayout } from "../../components/dashboard/DashboardLayout";
+import { RightPanel } from "../../components/dashboard/RightPanel";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -52,7 +53,7 @@ function PortfolioPage() {
   const totalPnLPercent = (totalPnL / totalInvested) * 100;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout rightPanel={<RightPanel />}>
       {/* Hero Header */}
       <div className="mb-8">
         <h1 className="display-lg text-on-surface mb-2">Portfolio</h1>
