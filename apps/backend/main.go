@@ -36,7 +36,7 @@ func main() {
 	}
 
 	database.InitDB()
-	database.SeedAdmin()
+	// database.SeedAdmin()
 	r := gin.Default()
 
 	// CORS configuration for frontend
