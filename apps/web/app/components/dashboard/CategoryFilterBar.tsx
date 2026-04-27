@@ -37,7 +37,7 @@ export function CategoryFilterBar({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide",
+        "flex items-center gap-2 overflow-x-auto py-1 scrollbar-hide",
         className,
       )}
     >

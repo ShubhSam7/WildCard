@@ -14,7 +14,7 @@
   --surface-container: #1a1a1a;
   --surface-container-highest: #262626;
   --surface-variant: #484848;
-  
+
   /* NEON ACCENTS */
   --primary: #b2b1ff;
   --primary-container: #9a99e5;
@@ -25,29 +25,30 @@
   --on-error: #000000;
   --tertiary: #ffb347;
   --on-tertiary: #000000;
-  
+
   /* TEXT COLORS */
   --on-background: #ffffff;
   --on-surface: #ffffff;
   --on-surface-variant: #adabaa;
   --outline-variant: #484848;
-  
+
   /* SPACING */
   --spacing-xs: 0.5rem;
   --spacing-sm: 1rem;
   --spacing-md: 1.5rem;
   --spacing-lg: 2rem;
   --spacing-xl: 3rem;
-  
+
   /* SHADOWS & GLOWS */
   --shadow-ambient: 0px 24px 48px rgba(0, 0, 0, 0.5);
-  --glow-primary: 0px 0px 12px var(--primary);
+  --glow-primary:
+    0 0 0 1px rgba(178, 177, 255, 0.52), 0 0 8px 1px rgba(178, 177, 255, 0.26);
   --glow-secondary: 0px 0px 12px var(--secondary);
   --glow-error: 0px 0px 12px var(--error);
-  
+
   /* TRANSITIONS */
   --transition-base: 200ms ease;
-  
+
   /* RADIUS */
   --radius-md: 1rem;
   --radius-lg: 1.5rem;

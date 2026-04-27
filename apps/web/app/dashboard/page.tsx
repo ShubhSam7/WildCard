@@ -185,6 +185,7 @@ function DashboardContent() {
         </div>
 
         <CategoryFilterBar
+          className="pl-1"
           selectedCategory={selectedCategory}
           onCategoryChange={handleCategoryChange}
         />
